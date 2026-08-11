@@ -409,13 +409,6 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                           </p>
                         </td>
                         <td className="px-4 py-3">
-                          {vehicle.certificate_number ? (
-                            <><p className="font-medium text-emerald-800">Issued {shortDate(vehicle.certificate_issued_at)}</p><p className="mt-0.5 text-xs text-muted-foreground">Expires {shortDate(vehicle.certificate_expires_at)}</p></>
-                          ) : (
-                            <Link href={`/provider/vehicles/${vehicle.id}/certificate`} className="text-xs font-medium text-emerald-800 hover:underline">Not issued</Link>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
                           <p className="max-w-48 truncate font-medium">{vehicle.owner.owner_name}</p>
                           <p className="mt-0.5 max-w-48 truncate text-xs text-muted-foreground">
                             {vehicle.owner.owner_code || "Owner code pending"}
@@ -448,6 +441,13 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                               Add documents
                             </Link>
                           ) : null}
+                        </td>
+                        <td className="px-4 py-3">
+                          {vehicle.certificate_number ? (
+                            <><p className="font-medium text-emerald-800">Issued {shortDate(vehicle.certificate_issued_at)}</p><p className="mt-0.5 text-xs text-muted-foreground">Expires {shortDate(vehicle.certificate_expires_at)}</p></>
+                          ) : (
+                            <Link href={`/provider/vehicles/${vehicle.id}/certificate`} className="text-xs font-medium text-emerald-800 hover:underline">Not issued</Link>
+                          )}
                         </td>
                         <td className="px-4 py-3"><Badge variant="outline">{statusLabel(vehicle.status)}</Badge></td>
                         <td className="px-4 py-3 text-right">
