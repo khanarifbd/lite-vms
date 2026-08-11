@@ -1,0 +1,28 @@
+[Unit]
+Description=Bangladesh National Vehicle Platform Web
+After=network-online.target {{API_SERVICE_NAME}}.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{APP_USER}}
+Group={{APP_GROUP}}
+WorkingDirectory={{FRONTEND_DIR}}
+EnvironmentFile={{FRONTEND_ENV_FILE}}
+Environment=NODE_ENV=production
+ExecStart={{PNPM_BIN}} start --hostname {{WEB_HOST}} --port {{WEB_PORT}}
+Restart=always
+RestartSec=5
+TimeoutStartSec=90
+TimeoutStopSec=30
+KillSignal=SIGTERM
+UMask=0027
+LimitNOFILE=65535
+NoNewPrivileges=true
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier={{WEB_SERVICE_NAME}}
+
+[Install]
+WantedBy=multi-user.target

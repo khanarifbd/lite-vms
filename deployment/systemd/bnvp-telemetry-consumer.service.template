@@ -1,0 +1,29 @@
+[Unit]
+Description=Bangladesh National Vehicle Platform Telemetry Consumer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{APP_USER}}
+Group={{APP_GROUP}}
+WorkingDirectory={{BACKEND_DIR}}
+EnvironmentFile={{BACKEND_ENV_FILE}}
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart={{BACKEND_VENV}}/bin/python -m app.workers.telemetry_consumer
+Restart=always
+RestartSec=5
+TimeoutStartSec=90
+TimeoutStopSec=30
+KillSignal=SIGTERM
+UMask=0027
+LimitNOFILE=65535
+NoNewPrivileges=true
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier={{CONSUMER_SERVICE_NAME}}
+
+[Install]
+WantedBy=multi-user.target

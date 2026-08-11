@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.common.enums import UserRole
+from app.core.config import settings
 from app.modules.approvals.cursor_router import router as approval_cursor_router
 from app.modules.approvals.document_router import router as approval_document_router
 from app.modules.assignments.owner_vehicle_router import router as owner_vehicle_driver_router
@@ -146,5 +147,6 @@ registry_roles = (
 registry_access = [Depends(require_roles(*registry_roles))]
 
 api_router.include_router(documents_router, dependencies=registry_access)
-api_router.include_router(telemetry_router)
+if settings.telemetry_enabled:
+    api_router.include_router(telemetry_router)
 api_router.include_router(qr_router, dependencies=registry_access)

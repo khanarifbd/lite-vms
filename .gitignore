@@ -1,0 +1,9 @@
+# Server-only deployment configuration
+/deployment/deploy.env
+
+# Local runtime artifacts
+/backend/.venv/
+/backend/*.db
+/backend/*.sqlite3
+/frontend/node_modules/
+/frontend/.next/

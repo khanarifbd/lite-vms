@@ -15,11 +15,13 @@ from app.modules.telemetry.kafka import telemetry_kafka_producer
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await bootstrap_identity_platform()
-    await telemetry_kafka_producer.start()
+    if settings.telemetry_enabled:
+        await telemetry_kafka_producer.start()
     try:
         yield
     finally:
-        await telemetry_kafka_producer.stop()
+        if settings.telemetry_enabled:
+            await telemetry_kafka_producer.stop()
         await close_database()
 
 

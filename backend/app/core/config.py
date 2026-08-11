@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
     kafka_bootstrap_servers: str = "localhost:9092"
+    telemetry_enabled: bool = False
     kafka_client_id: str = "bnvp-ingestion-api"
     kafka_tracking_packets_topic: str = "tracking.packet.valid.v1"
     kafka_tracking_packets_dlq_topic: str = "tracking.packet.dead-letter.v1"
@@ -82,13 +83,13 @@ class Settings(BaseSettings):
             raise ValueError("PUBLIC_REGISTRATION_AUTO_ACTIVATE must be false in production")
         if is_production and not self.sms_gateway_url.strip():
             raise ValueError("SMS_GATEWAY_URL must be configured in production")
-        if is_production and not self.kafka_bootstrap_servers.strip():
+        if is_production and self.telemetry_enabled and not self.kafka_bootstrap_servers.strip():
             raise ValueError("KAFKA_BOOTSTRAP_SERVERS must be configured in production")
         if is_production and self.telemetry_allow_unauthenticated_test:
             raise ValueError(
                 "TELEMETRY_ALLOW_UNAUTHENTICATED_TEST must be false in production"
             )
-        if is_production and not self.clickhouse_host.strip():
+        if is_production and self.telemetry_enabled and not self.clickhouse_host.strip():
             raise ValueError("CLICKHOUSE_HOST must be configured in production")
 
         if not self.public_web_url.strip().startswith(("http://", "https://")):
