@@ -3,6 +3,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +26,11 @@ from app.modules.vehicles.provider_registration_schema import (
     ProviderVehicleRegistrationCreate,
     ProviderVehicleRegistrationUpdate,
     VehicleIdentityAvailability,
+)
+from app.modules.vehicles.provider_registration_router import (
+    certificate_payload,
+    certificate_pdf,
+    certificate_readiness,
 )
 from app.modules.vehicles.router import find_identity_conflict
 from app.modules.vehicles.schema import VehicleRead
@@ -366,3 +372,34 @@ async def submit_owner_vehicle_registration(
     await session.commit()
     await session.refresh(vehicle)
     return await build_vehicle_read(session, vehicle)
+
+
+@router.get("/{vehicle_id}/certificate")
+async def get_owner_vehicle_certificate(
+    vehicle_id: uuid.UUID,
+    actor: Annotated[User, Depends(require_roles(UserRole.VEHICLE_OWNER))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    owner = await require_approved_owner(session, actor)
+    vehicle = await require_owner_vehicle(session, owner=owner, vehicle_id=vehicle_id)
+    requirements, _ = await certificate_readiness(session, vehicle)
+    return certificate_payload(vehicle, requirements=requirements)
+
+
+@router.get("/{vehicle_id}/certificate/download")
+async def download_owner_vehicle_certificate(
+    vehicle_id: uuid.UUID,
+    actor: Annotated[User, Depends(require_roles(UserRole.VEHICLE_OWNER))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> StreamingResponse:
+    owner = await require_approved_owner(session, actor)
+    vehicle = await require_owner_vehicle(session, owner=owner, vehicle_id=vehicle_id)
+    if not vehicle.certificate_number:
+        raise HTTPException(status_code=404, detail="Certificate has not been issued")
+    pdf = certificate_pdf(vehicle, owner)
+    filename = f"{vehicle.certificate_number}.pdf"
+    return StreamingResponse(
+        pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

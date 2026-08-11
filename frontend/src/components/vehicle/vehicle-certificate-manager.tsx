@@ -49,7 +49,7 @@ function todayDate() {
   return monthsAgoDate(0)
 }
 
-export function VehicleCertificateManager({ vehicleId, canManage }: { vehicleId: string; canManage: boolean }) {
+export function VehicleCertificateManager({ vehicleId, canManage, apiBasePath = "/api/provider/vehicles", documentsHref }: { vehicleId: string; canManage: boolean; apiBasePath?: string; documentsHref?: string }) {
   const [certificate, setCertificate] = useState<Certificate | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -58,19 +58,19 @@ export function VehicleCertificateManager({ vehicleId, canManage }: { vehicleId:
   const [certificateExpiryDate, setCertificateExpiryDate] = useState(monthsAheadDate(1))
 
   async function load() {
-    const response = await fetch(`/api/provider/vehicles/${vehicleId}/certificate`)
+    const response = await fetch(`${apiBasePath}/${vehicleId}/certificate`)
     const data = (await response.json().catch(() => null)) as Certificate | { message?: string } | null
     if (!response.ok) throw new Error((data as { message?: string } | null)?.message || "Unable to load certificate status.")
     setCertificate(data as Certificate)
   }
 
-  useEffect(() => { void load().catch((cause) => setError(cause instanceof Error ? cause.message : "Unable to load certificate status.")) }, [vehicleId])
+  useEffect(() => { void load().catch((cause) => setError(cause instanceof Error ? cause.message : "Unable to load certificate status.")) }, [apiBasePath, vehicleId])
 
   async function generate() {
     setBusy(true)
     setError(null)
     try {
-      const response = await fetch(`/api/provider/vehicles/${vehicleId}/certificate`, {
+      const response = await fetch(`${apiBasePath}/${vehicleId}/certificate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vts_installation_date: installationDate, certificate_expires_at: certificateExpiryDate }),
@@ -97,11 +97,11 @@ export function VehicleCertificateManager({ vehicleId, canManage }: { vehicleId:
           <Badge variant={certificate.status === "active" ? "secondary" : "outline"}>{certificate.status.replace("_", " ")}</Badge>
         </CardHeader>
         <CardContent className="space-y-5">
-          {certificate.requirements.length ? <Alert className="border-amber-200 bg-amber-50 text-amber-950"><FileText /><AlertTitle>Documents required before certificate issue</AlertTitle><AlertDescription><p>Update these documents first: {certificate.requirements.join(", ")}.</p><Button asChild size="sm" variant="outline" className="mt-3"><Link href={`/provider/vehicles/${vehicleId}/documents`}>Open documents</Link></Button></AlertDescription></Alert> : null}
+          {certificate.requirements.length ? <Alert className="border-amber-200 bg-amber-50 text-amber-950"><FileText /><AlertTitle>Documents required before certificate issue</AlertTitle><AlertDescription><p>Update these documents first: {certificate.requirements.join(", ")}.</p>{documentsHref ? <Button asChild size="sm" variant="outline" className="mt-3"><Link href={documentsHref}>Open documents</Link></Button> : null}</AlertDescription></Alert> : null}
           <div className="grid gap-4 sm:grid-cols-3"><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-muted-foreground">Certificate no.</p><p className="mt-2 font-semibold">{certificate.certificate_number || "Not issued"}</p></div><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-muted-foreground">Issued on</p><p className="mt-2 font-semibold">{formatDate(certificate.issued_at)}</p></div><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-muted-foreground">Expires on</p><p className="mt-2 font-semibold">{formatDate(certificate.expires_at)}</p></div></div>
           <div className="flex flex-wrap gap-3">
-            {certificate.certificate_number ? <Button asChild variant="outline"><a href={`/api/provider/vehicles/${vehicleId}/certificate/download?view=1`} target="_blank" rel="noopener noreferrer"><Eye /> View certificate</a></Button> : null}
-            {certificate.certificate_number ? <Button asChild variant="outline"><a href={`/api/provider/vehicles/${vehicleId}/certificate/download`}><Download /> Download certificate PDF</a></Button> : null}
+            {certificate.certificate_number ? <Button asChild variant="outline"><a href={`${apiBasePath}/${vehicleId}/certificate/download?view=1`} target="_blank" rel="noopener noreferrer"><Eye /> View certificate</a></Button> : null}
+            {certificate.certificate_number ? <Button asChild variant="outline"><a href={`${apiBasePath}/${vehicleId}/certificate/download`}><Download /> Download certificate PDF</a></Button> : null}
             {canManage ? <Button disabled={!certificate.can_generate || busy} onClick={() => setInstallationDialogOpen(true)} className="bg-emerald-800 hover:bg-emerald-900"><RefreshCw />{certificate.certificate_number ? "Generate replacement certificate" : "Generate certificate"}</Button> : null}
           </div>
           <Dialog open={installationDialogOpen} onOpenChange={setInstallationDialogOpen}>
