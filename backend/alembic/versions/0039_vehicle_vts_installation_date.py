@@ -1,14 +1,14 @@
 """Add VTS installation date to vehicles.
 
 Revision ID: 0039_vehicle_vts_installation_date
-Revises: 0038_vehicle_certificates
+Revises: 0039_version_width
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "0039_vehicle_vts_installation_date"
-down_revision = "0038_vehicle_certificates"
+down_revision = "0039_version_width"
 branch_labels = None
 depends_on = None
 
