@@ -177,13 +177,11 @@ def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner) -> BytesIO:
             page.setFont("Helvetica-Bold", x(19))
             page.drawRightString(x(left + card_width - 44), y(row_y + 31), value)
 
-    # Figma certificate frame background and printed border.
+    # Figma certificate frame background, pattern and printed border.
     page.setFillColor(colors.HexColor("#fdf9f5"))
     page.rect(0, 0, width, height, stroke=0, fill=1)
-    page.setStrokeColor(colors.Color(225 / 255, 0, 0, alpha=0.16))
-    page.setLineWidth(x(5))
-    page.line(x(48), y(60), x(48), y(1860))
-    page.line(width - x(48), y(60), width - x(48), y(1860))
+    draw_logo("pattern.png", -671, 0, 2705, 1920)
+    draw_logo("border.png", 22, 40, 1319, 1840)
 
     draw_logo("gomax_tracker.png", 140.73, 60, 253.968, 80)
     draw_logo("auto_generation.png", 970, 60, 252.379, 80)
@@ -243,11 +241,16 @@ def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner) -> BytesIO:
     page.setStrokeColor(colors.Color(225 / 255, 0, 0, alpha=0.30))
     page.roundRect(x(101), y(1425), x(1160), x(152), x(16), stroke=1, fill=1)
     page.setFillColor(colors.HexColor("#231f20"))
+    # The BTRC emblem is built from the exact four exported Figma vector layers.
+    draw_logo("btrc_1.png", 141, 1353.37, 130, 89.63)
+    draw_logo("btrc_2.png", 168.47, 1313, 72.47, 23.02)
+    draw_logo("btrc_3.png", 160.63, 1330.22, 89.81, 92.94)
+    draw_logo("btrc_4.png", 171.62, 1367.83, 68.78, 22.78)
     page.setFont("Helvetica-Bold", x(22))
-    page.drawString(x(195), y(1355), "BTRC LICENSED VEHICLE TRACKING SERVICE PROVIDER")
+    page.drawString(x(290), y(1355), "BTRC LICENSED VEHICLE TRACKING SERVICE PROVIDER")
     page.setFillColor(colors.Color(35 / 255, 31 / 255, 32 / 255, alpha=0.70))
     page.setFont("Helvetica", x(18))
-    page.drawString(x(195), y(1395), "BTRC VTS License No: 14.32.00000.007.58.055.18.44")
+    page.drawString(x(290), y(1395), "BTRC VTS License No: 14.32.00000.007.58.055.18.44")
 
     page.setFillColor(colors.HexColor("#231f20"))
     page.setFont("Helvetica-Bold", x(22))
