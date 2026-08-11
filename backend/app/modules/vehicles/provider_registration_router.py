@@ -1,8 +1,10 @@
 import secrets
 import uuid
+from urllib.parse import quote
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+import httpx
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +20,8 @@ from app.modules.audit.service import write_audit_log
 from app.modules.auth.dependencies import require_roles
 from app.modules.auth.model import User
 from app.modules.owners.model import VehicleOwner
+from app.modules.owners.service import get_owner_username
+from app.core.config import settings
 from app.modules.providers.service import get_provider_for_user
 from app.modules.qr_verification.model import VehicleQRToken
 from app.modules.settings.service import auto_approve_vehicle
@@ -51,6 +55,72 @@ PROVIDER_VEHICLE_EDITABLE_STATUSES = {
     VehicleVerificationStatus.DRAFT,
     VehicleVerificationStatus.CHANGES_REQUESTED,
 }
+
+
+@router.post("/gomax-import")
+async def import_gomax_vehicles(
+    owner_id: uuid.UUID,
+    actor: Annotated[User, Depends(require_roles(*PROVIDER_VEHICLE_MANAGE_ROLES))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, int | str]:
+    """Import Go Max device projects as draft vehicles for an active-linked owner."""
+    owner, provider = await resolve_vehicle_owner(session, actor=actor, owner_id=owner_id)
+    if provider is None:
+        provider = await require_approved_provider(session, actor)
+    username = await get_owner_username(session, owner)
+    if not username:
+        raise HTTPException(status_code=422, detail="The selected owner does not have a username")
+
+    base_url = settings.gomax_crm_base_url.rstrip("/")
+    try:
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+            login = await client.post(f"{base_url}/login_with_username/{quote(username, safe='')}")
+            login.raise_for_status()
+            customer = login.json()
+            customer_id = str(customer.get("id") or "").strip()
+            if not customer_id:
+                raise ValueError("Go Max did not return a customer ID")
+            devices = await client.get(f"{base_url}/device_list/{quote(customer_id, safe='')}")
+            devices.raise_for_status()
+            projects = devices.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=f"Go Max import failed: {exc}") from None
+    if not isinstance(projects, list):
+        raise HTTPException(status_code=502, detail="Go Max device list has an invalid format")
+
+    imported = 0
+    skipped = 0
+    for project in projects:
+        if not isinstance(project, dict):
+            skipped += 1
+            continue
+        project_id = str(project.get("project_id") or "").strip()
+        project_name = str(project.get("project_name") or "").strip()
+        if not project_id or not project_name:
+            skipped += 1
+            continue
+        source_identity = f"GOMAX-{project_id}"
+        exists = await session.scalar(
+            select(Vehicle.id).where(Vehicle.chassis_number == source_identity)
+        )
+        if exists is not None:
+            skipped += 1
+            continue
+        session.add(
+            Vehicle(
+                registration_number=source_identity,
+                registration_number_display=project_name[:80],
+                chassis_number=source_identity,
+                vehicle_type="Imported",
+                owner_id=owner.id,
+                created_by_provider_id=provider.id,
+                verification_status=VehicleVerificationStatus.DRAFT,
+                notes=f"Imported from Go Max project {project_id}. Complete vehicle details and documents later.",
+            )
+        )
+        imported += 1
+    await session.commit()
+    return {"message": "Go Max vehicles imported", "customer_id": customer_id, "imported": imported, "skipped": skipped}
 
 
 async def require_approved_provider(session: AsyncSession, actor: User):

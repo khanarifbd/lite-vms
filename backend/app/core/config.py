@@ -24,6 +24,7 @@ class Settings(BaseSettings):
 
     kafka_bootstrap_servers: str = "localhost:9092"
     telemetry_enabled: bool = False
+    gomax_crm_base_url: str = "https://www.gomaxbd.com/api/v1/crm"
     kafka_client_id: str = "bnvp-ingestion-api"
     kafka_tracking_packets_topic: str = "tracking.packet.valid.v1"
     kafka_tracking_packets_dlq_topic: str = "tracking.packet.dead-letter.v1"

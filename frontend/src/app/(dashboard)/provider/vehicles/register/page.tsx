@@ -6,6 +6,7 @@ import {
   ProviderVehicleRegistrationForm,
   type ProviderVehicleOwnerOption,
 } from "@/components/provider/provider-vehicle-registration-form"
+import { GoMaxVehicleImport } from "@/components/provider/gomax-vehicle-import"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -52,7 +53,7 @@ export default async function ProviderVehicleRegistrationPage() {
   try {
     const result = await getActiveProviderOwners()
     owners = result.items
-      .filter((item) => item.link.status === "active" && item.owner.verification_status === "approved")
+      .filter((item) => item.link.status === "active")
       .map((item) => ({
         id: item.owner.id,
         owner_name: item.owner.owner_name,
@@ -110,6 +111,7 @@ export default async function ProviderVehicleRegistrationPage() {
           </Alert>
         ) : null}
 
+        <GoMaxVehicleImport owners={owners} />
         <ProviderVehicleRegistrationForm owners={owners} />
       </div>
     </div>
