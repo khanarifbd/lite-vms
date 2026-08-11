@@ -340,102 +340,58 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
 
           <CardContent className="p-4 sm:p-6">
             {vehicles.items.length ? (
-              <div className="divide-y overflow-hidden rounded-2xl border bg-white">
-                {vehicles.items.map((vehicle) => (
-                  <article key={vehicle.id} className="p-4 transition-colors hover:bg-slate-50">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex min-w-0 items-start gap-3">
-                        <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800">
-                          <CarFront aria-hidden="true" className="size-5" />
-                        </div>
-                        <div className="min-w-0">
+              <div className="overflow-x-auto rounded-xl border">
+                <table className="w-full min-w-[900px] border-collapse text-sm">
+                  <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Vehicle name</th>
+                      <th className="px-4 py-3 font-medium">Owner</th>
+                      <th className="px-4 py-3 font-medium">Registration no.</th>
+                      <th className="px-4 py-3 font-medium">Vehicle type</th>
+                      <th className="px-4 py-3 font-medium">Verification</th>
+                      <th className="px-4 py-3 font-medium">Status</th>
+                      <th className="px-4 py-3 text-right font-medium">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {vehicles.items.map((vehicle) => (
+                      <tr key={vehicle.id} className="transition-colors hover:bg-slate-50">
+                        <td className="px-4 py-3">
                           <Link
                             href={`/provider/vehicles/${vehicle.id}`}
-                            className="block truncate text-lg font-semibold hover:text-emerald-800 hover:underline"
+                            className="block max-w-56 truncate font-semibold hover:text-emerald-800 hover:underline"
                           >
                             {vehicle.registration_number_display || vehicle.registration_number}
                           </Link>
-                          <p className="mt-1 truncate text-xs text-muted-foreground">
-                            {[vehicle.brand, vehicle.model, vehicle.vehicle_type]
-                              .filter(Boolean)
-                              .join(" · ") || "Vehicle details pending"}
+                          <p className="mt-0.5 max-w-56 truncate text-xs text-muted-foreground">
+                            {[vehicle.brand, vehicle.model].filter(Boolean).join(" · ") || "Imported vehicle"}
                           </p>
-                        </div>
-                      </div>
-                      <StatusBadge status={vehicle.verification_status} />
-                    </div>
-
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">
-                      <div className="rounded-xl bg-slate-50 px-3 py-2.5">
-                        <p className="text-xs text-muted-foreground">Vehicle owner</p>
-                        <p className="mt-1 truncate font-medium">{vehicle.owner.owner_name}</p>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {vehicle.owner.owner_code || "Owner code pending"}
-                        </p>
-                      </div>
-                      {trackingUiEnabled ? (
-                        <>
-                          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
-                            <p className="text-xs text-muted-foreground">GPS status</p>
-                            <p className="mt-1 flex items-center gap-2 font-medium">
-                              <span
-                                className={`size-2 rounded-full ${vehicle.gps_online ? "bg-emerald-500" : "bg-slate-300"}`}
-                              />
-                              {vehicle.gps_online ? "Online" : "Offline"}
-                            </p>
-                            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                              <Clock3 aria-hidden="true" className="size-3" />
-                              {formatDate(vehicle.tracking_last_seen_at)}
-                            </p>
-                          </div>
-                          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
-                            <p className="text-xs text-muted-foreground">Tracking provider</p>
-                            <p className="mt-1 truncate font-medium">
-                              {vehicle.tracking_provider_name || "Not connected"}
-                            </p>
-                          </div>
-                          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
-                            <p className="text-xs text-muted-foreground">Current driver</p>
-                            <p className="mt-1 flex items-center gap-1.5 truncate font-medium">
-                              <UserRound aria-hidden="true" className="size-3.5 shrink-0" />
-                              {vehicle.current_driver_name || "Not assigned"}
-                            </p>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="rounded-xl bg-slate-50 px-3 py-2.5">
-                          <p className="text-xs text-muted-foreground">Registration status</p>
-                          <p className="mt-1 font-medium">{statusLabel(vehicle.status)}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="capitalize">
-                          {statusLabel(vehicle.status)}
-                        </Badge>
-                        {trackingUiEnabled ? (
-                          <>
-                            <Badge variant="outline">
-                              Tracking {statusLabel(vehicle.tracking_assignment_status || "not_assigned")}
-                            </Badge>
-                            {vehicle.latest_speed_kph !== null ? (
-                              <Badge variant="secondary">
-                                Latest speed {Math.round(vehicle.latest_speed_kph)} km/h
-                              </Badge>
-                            ) : null}
-                          </>
-                        ) : null}
-                      </div>
-                      <Button asChild size="sm" variant="outline">
-                        <Link href={`/provider/vehicles/${vehicle.id}`}>
-                          <Eye /> View details
-                        </Link>
-                      </Button>
-                    </div>
-                  </article>
-                ))}
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="max-w-48 truncate font-medium">{vehicle.owner.owner_name}</p>
+                          <p className="mt-0.5 max-w-48 truncate text-xs text-muted-foreground">
+                            {vehicle.owner.owner_code || "Owner code pending"}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-slate-700">
+                          {vehicle.registration_number.startsWith("GOMAX-")
+                            ? "To be updated"
+                            : vehicle.registration_number}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">{vehicle.vehicle_type}</td>
+                        <td className="px-4 py-3"><StatusBadge status={vehicle.verification_status} /></td>
+                        <td className="px-4 py-3"><Badge variant="outline">{statusLabel(vehicle.status)}</Badge></td>
+                        <td className="px-4 py-3 text-right">
+                          <Button asChild size="sm" variant="outline">
+                            <Link href={`/provider/vehicles/${vehicle.id}`}>
+                              <Eye /> View
+                            </Link>
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : (
               <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-dashed bg-slate-50 px-6 text-center">
