@@ -108,6 +108,7 @@ if [[ ! -x "${BACKEND_VENV}/bin/python" ]]; then
 fi
 run_as_app "${BACKEND_VENV}/bin/python" -m pip install --upgrade pip
 run_as_app "${BACKEND_VENV}/bin/python" -m pip install -r "${BACKEND_DIR}/requirements.txt"
+run_as_app bash -c "cd '${BACKEND_DIR}' && '${BACKEND_VENV}/bin/python' -c \"from app.core.config import settings; assert settings.database_url.startswith('postgresql+asyncpg://'), 'Production DATABASE_URL must use postgresql+asyncpg://'\""
 
 log "Building frontend"
 run_as_app "${PNPM_BIN}" --dir "${FRONTEND_DIR}" install --frozen-lockfile

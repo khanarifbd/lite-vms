@@ -26,6 +26,11 @@ backend/.env
 frontend/.env.production
 ```
 
+It also installs and starts PostgreSQL. Before the first deployment, create the private
+database and application user as described in [PostgreSQL setup](POSTGRESQL_SETUP.md).
+The production deploy script rejects SQLite URLs, so the live environment cannot
+accidentally start on the local SQLite database.
+
 Edit the generated files before running the installer again. At minimum, set `SERVER_NAME`, the public URLs, database credentials, a strong `JWT_SECRET_KEY`, and SMS settings. Kafka/ClickHouse are not required while telemetry is disabled.
 
 ## Enabling telemetry later

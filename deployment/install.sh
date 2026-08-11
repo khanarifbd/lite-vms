@@ -15,7 +15,13 @@ command -v apt-get >/dev/null 2>&1 || die "This installer currently supports Ubu
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y ca-certificates curl git nginx python3 python3-pip python3-venv
+apt-get install -y \
+    ca-certificates curl git nginx python3 python3-pip python3-venv \
+    postgresql postgresql-contrib
+
+# PostgreSQL is the only production application database. It remains private on
+# localhost; Nginx is the only public-facing service.
+systemctl enable --now postgresql
 
 if ! command -v node >/dev/null 2>&1 || [[ "$(node -p 'process.versions.node.split(`.`)[0]')" != "24" ]]; then
     curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
