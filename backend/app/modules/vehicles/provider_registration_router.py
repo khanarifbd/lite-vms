@@ -182,6 +182,8 @@ def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner) -> BytesIO:
     page.rect(0, 0, width, height, stroke=0, fill=1)
     draw_logo("pattern.png", -671, 0, 2705, 1920)
     draw_logo("border.png", 22, 40, 1319, 1840)
+    # Figma's transparent Go Max artwork sits beneath the explanatory copy.
+    draw_logo("background_mark.png", 210, 528, 943, 301.653)
 
     draw_logo("gomax_tracker.png", 140.73, 60, 253.968, 80)
     draw_logo("auto_generation.png", 970, 60, 252.379, 80)
@@ -247,10 +249,10 @@ def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner) -> BytesIO:
     draw_logo("btrc_3.png", 160.63, 1330.22, 89.81, 92.94)
     draw_logo("btrc_4.png", 171.62, 1367.83, 68.78, 22.78)
     page.setFont("Helvetica-Bold", x(22))
-    page.drawString(x(290), y(1355), "BTRC LICENSED VEHICLE TRACKING SERVICE PROVIDER")
+    page.drawString(x(335), y(1355), "BTRC LICENSED VEHICLE TRACKING SERVICE PROVIDER")
     page.setFillColor(colors.Color(35 / 255, 31 / 255, 32 / 255, alpha=0.70))
     page.setFont("Helvetica", x(18))
-    page.drawString(x(290), y(1395), "BTRC VTS License No: 14.32.00000.007.58.055.18.44")
+    page.drawString(x(335), y(1395), "BTRC VTS License No: 14.32.00000.007.58.055.18.44")
 
     page.setFillColor(colors.HexColor("#231f20"))
     page.setFont("Helvetica-Bold", x(22))
