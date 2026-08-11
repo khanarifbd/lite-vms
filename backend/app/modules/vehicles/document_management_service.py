@@ -1,6 +1,6 @@
 import secrets
 import uuid
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile
@@ -15,6 +15,7 @@ from app.modules.auth.model import User
 from app.modules.documents.model import VehicleDocument
 from app.modules.uploads.router import safe_extension, upload_root
 from app.modules.vehicles.model import Vehicle
+from app.modules.settings.service import approval_settings
 from app.modules.vehicles.provider_document_schema import (
     DocumentExpiryStatus,
     ProviderVehicleDocumentPage,
@@ -247,6 +248,11 @@ async def upload_vehicle_document(
             current.replaced_by_id = None
 
     version = latest.version + 1 if latest else 1
+    document_auto_verify = (await approval_settings(session)).document_auto_verify
+    document_status = (
+        DocumentStatus.VALID if document_auto_verify else DocumentStatus.PENDING_VERIFICATION
+    )
+    verified_at = datetime.now(UTC) if document_auto_verify else None
     storage_key, file_name, content_type, size_bytes, destination = await save_upload(file)
     document = VehicleDocument(
         vehicle_id=vehicle.id,
@@ -254,22 +260,39 @@ async def upload_vehicle_document(
         document_number=document_number.strip() if document_number else None,
         issued_at=issued_at,
         expires_at=expires_at,
-        status=DocumentStatus.PENDING_VERIFICATION,
+        status=document_status,
         source=source,
         storage_key=storage_key,
         file_name=file_name,
         content_type=content_type,
         size_bytes=size_bytes,
         version=version,
-        # An initial document is visible as the current pending record. A replacement
-        # is staged while the previously verified document remains operational.
-        is_active=current is None,
+        # With document auto-approval enabled, the uploaded version becomes current
+        # immediately. Otherwise replacements remain staged for review.
+        is_active=document_auto_verify or current is None,
+        verified_by_user_id=actor.id if document_auto_verify else None,
+        verified_at=verified_at,
+        review_notes=(
+            "Automatically verified by system configuration"
+            if document_auto_verify
+            else None
+        ),
     )
     session.add(document)
     try:
         await session.flush()
         if current is not None:
             current.replaced_by_id = document.id
+            if document_auto_verify:
+                current.is_active = False
+        if document_auto_verify:
+            sync_vehicle_document_fields(
+                vehicle,
+                document_type=document_type,
+                storage_key=storage_key,
+                document_number=document_number,
+                expires_at=expires_at,
+            )
         await write_audit_log(
             session,
             tenant_id=tenant_id,
@@ -289,9 +312,9 @@ async def upload_vehicle_document(
                 "source": source,
                 "replaced_document_id": str(current.id) if current else None,
                 "expires_at": expires_at.isoformat() if expires_at else None,
-                "verification_status": DocumentStatus.PENDING_VERIFICATION.value,
+                "verification_status": document_status.value,
                 "vehicle_verification_status": vehicle.verification_status.value,
-                "staged_replacement": current is not None,
+                "staged_replacement": current is not None and not document_auto_verify,
             },
         )
         await session.commit()
