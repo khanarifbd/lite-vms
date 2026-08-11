@@ -1,0 +1,133 @@
+name: Backend CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "app/**"
+      - "alembic/**"
+      - "tests/**"
+      - "deployment/**"
+      - "requirements*.txt"
+      - "pyproject.toml"
+      - ".github/workflows/backend-ci.yml"
+  push:
+    branches: [main]
+
+env:
+  APP_ENV: testing
+  JWT_SECRET_KEY: ci-only-secret-key-that-is-longer-than-thirty-two-characters
+  BOOTSTRAP_SUPER_ADMIN_EMAIL: ci-admin@example.com
+  BOOTSTRAP_SUPER_ADMIN_PASSWORD: CI-Admin-Password-123
+  BOOTSTRAP_SUPER_ADMIN_FULL_NAME: CI Super Admin
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: bash -n deployment/deploy.sh deployment/install.sh
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Ruff
+        run: python -m ruff check . 2>&1 | tee ruff.log
+      - name: Upload Ruff diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ruff-diagnostics
+          path: ruff.log
+      - name: Pytest
+        run: python -m pytest 2>&1 | tee pytest.log
+      - name: Upload pytest diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-diagnostics
+          path: pytest.log
+      - name: SQLite clean migration
+        run: |
+          rm -f vehicle_platform.db
+          python -m alembic upgrade head 2>&1 | tee sqlite-migration.log
+          python -m alembic current
+          python - <<'PY'
+          from sqlalchemy import create_engine, inspect
+
+          inspector = inspect(create_engine("sqlite:///vehicle_platform.db"))
+          unique_shapes = {
+              tuple(item["column_names"])
+              for item in inspector.get_unique_constraints("tracking_devices")
+          }
+          unique_shapes.update(
+              tuple(item["column_names"])
+              for item in inspector.get_indexes("tracking_devices")
+              if item.get("unique")
+          )
+          assert ("source_id", "device_identifier") in unique_shapes, unique_shapes
+          assert ("device_identifier",) not in unique_shapes, unique_shapes
+          PY
+      - name: Upload SQLite migration diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-migration-diagnostics
+          path: sqlite-migration.log
+
+  postgres-migration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bnvp
+          POSTGRES_PASSWORD: bnvp-ci-password
+          POSTGRES_DB: bnvp_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bnvp -d bnvp_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+asyncpg://bnvp:bnvp-ci-password@127.0.0.1:5432/bnvp_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: python -m pip install -r requirements-dev.txt
+      - name: PostgreSQL clean migration
+        run: |
+          python -m alembic upgrade head 2>&1 | tee postgres-migration.log
+          python -m alembic current
+          python - <<'PY'
+          from sqlalchemy import create_engine, inspect
+
+          inspector = inspect(
+              create_engine(
+                  "postgresql+psycopg2://bnvp:bnvp-ci-password@127.0.0.1:5432/bnvp_ci"
+              )
+          )
+          unique_shapes = {
+              tuple(item["column_names"])
+              for item in inspector.get_unique_constraints("tracking_devices")
+          }
+          unique_shapes.update(
+              tuple(item["column_names"])
+              for item in inspector.get_indexes("tracking_devices")
+              if item.get("unique")
+          )
+          assert ("source_id", "device_identifier") in unique_shapes, unique_shapes
+          assert ("device_identifier",) not in unique_shapes, unique_shapes
+          PY
+      - name: Upload PostgreSQL migration diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-migration-diagnostics
+          path: postgres-migration.log

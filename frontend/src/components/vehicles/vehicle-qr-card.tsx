@@ -1,0 +1,163 @@
+"use client"
+
+import { Download, Loader2, Printer, QrCode, ShieldCheck } from "lucide-react"
+import { useEffect, useState } from "react"
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+
+type VehicleQrCardData = {
+  vehicle_id: string
+  registration_number: string
+  vehicle_type: string
+  token: string
+  verification_path: string
+  qr_svg: string
+  issued_at: string
+}
+
+export function VehicleQrCard({ vehicleId }: { vehicleId: string }) {
+  const [data, setData] = useState<VehicleQrCardData | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    void fetch(`/api/vehicle-qr/${encodeURIComponent(vehicleId)}`)
+      .then(async (response) => {
+        const body = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(body?.message || "Unable to load QR code.")
+        setData(body)
+      })
+      .catch((cause) => setError(cause instanceof Error ? cause.message : "Unable to load QR code."))
+  }, [vehicleId])
+
+  function printCard() {
+    setError(null)
+    window.print()
+  }
+
+  function downloadSvg() {
+    if (!data) return
+    const blob = new Blob([data.qr_svg], { type: "image/svg+xml" })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = `${data.registration_number.replaceAll(" ", "-")}-qr.svg`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>QR code unavailable</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="flex min-h-72 items-center justify-center">
+        <Loader2 className="size-7 animate-spin text-emerald-700" />
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 16mm;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          #vehicle-qr-print-area,
+          #vehicle-qr-print-area * {
+            visibility: visible !important;
+          }
+
+          #vehicle-qr-print-area {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100% !important;
+            max-width: 560px !important;
+            height: auto !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            background: white !important;
+          }
+
+          #vehicle-qr-print-area .qr-print-actions,
+          #vehicle-qr-print-area .qr-screen-icon {
+            display: none !important;
+          }
+
+          #vehicle-qr-print-area svg {
+            width: 245px !important;
+            height: 245px !important;
+          }
+        }
+      `}</style>
+
+      <Card id="vehicle-qr-print-area" className="mx-auto max-w-xl print:rounded-none">
+        <CardHeader className="text-center">
+          <div className="qr-screen-icon mx-auto flex size-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800">
+            <QrCode className="size-7" />
+          </div>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+            Bangladesh National Vehicle Platform
+          </p>
+          <CardTitle className="mt-2 text-2xl">National Vehicle QR Code</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Print and attach this card inside the vehicle where it can be scanned easily.
+          </p>
+        </CardHeader>
+
+        <CardContent className="space-y-5">
+          <div
+            className="mx-auto w-fit rounded-3xl border bg-white p-5"
+            dangerouslySetInnerHTML={{ __html: data.qr_svg }}
+          />
+
+          <div className="rounded-2xl bg-slate-50 p-5 text-center">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              Vehicle registration
+            </p>
+            <p className="mt-2 text-2xl font-bold">{data.registration_number}</p>
+            <p className="mt-1 text-sm capitalize text-muted-foreground">{data.vehicle_type}</p>
+          </div>
+
+          <Alert className="border-emerald-200 bg-emerald-50 text-emerald-950">
+            <ShieldCheck />
+            <AlertTitle>Official BNVP verification code</AlertTitle>
+            <AlertDescription>
+              Scanning this QR opens the official vehicle verification page. The same permanent QR
+              remains linked to this vehicle.
+            </AlertDescription>
+          </Alert>
+
+          <p className="hidden text-center text-xs text-muted-foreground print:block">
+            Generated by Bangladesh National Vehicle Platform
+          </p>
+
+          <div className="qr-print-actions flex flex-wrap gap-2">
+            <Button type="button" className="flex-1" onClick={printCard}>
+              <Printer /> Print QR card
+            </Button>
+            <Button type="button" variant="outline" className="flex-1" onClick={downloadSvg}>
+              <Download /> Download SVG
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  )
+}

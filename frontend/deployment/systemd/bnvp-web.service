@@ -1,0 +1,22 @@
+[Unit]
+Description=BNVP Next.js Frontend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bnvpweb
+Group=bnvpweb
+WorkingDirectory=/opt/bnvp-web
+EnvironmentFile=/opt/bnvp-web/.env.production
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/env pnpm start
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
