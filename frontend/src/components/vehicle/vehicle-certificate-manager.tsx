@@ -53,7 +53,6 @@ export function VehicleCertificateManager({ vehicleId, canManage }: { vehicleId:
   const [certificate, setCertificate] = useState<Certificate | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
   const [installationDialogOpen, setInstallationDialogOpen] = useState(false)
   const [installationDate, setInstallationDate] = useState(monthsAgoDate(1))
   const [certificateExpiryDate, setCertificateExpiryDate] = useState(monthsAheadDate(1))
@@ -101,14 +100,10 @@ export function VehicleCertificateManager({ vehicleId, canManage }: { vehicleId:
           {certificate.requirements.length ? <Alert className="border-amber-200 bg-amber-50 text-amber-950"><FileText /><AlertTitle>Documents required before certificate issue</AlertTitle><AlertDescription><p>Update these documents first: {certificate.requirements.join(", ")}.</p><Button asChild size="sm" variant="outline" className="mt-3"><Link href={`/provider/vehicles/${vehicleId}/documents`}>Open documents</Link></Button></AlertDescription></Alert> : null}
           <div className="grid gap-4 sm:grid-cols-3"><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-muted-foreground">Certificate no.</p><p className="mt-2 font-semibold">{certificate.certificate_number || "Not issued"}</p></div><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-muted-foreground">Issued on</p><p className="mt-2 font-semibold">{formatDate(certificate.issued_at)}</p></div><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-muted-foreground">Expires on</p><p className="mt-2 font-semibold">{formatDate(certificate.expires_at)}</p></div></div>
           <div className="flex flex-wrap gap-3">
-            {certificate.certificate_number ? <Button type="button" variant="outline" onClick={() => setShowPreview((visible) => !visible)}><Eye /> {showPreview ? "Hide certificate" : "View certificate"}</Button> : null}
+            {certificate.certificate_number ? <Button asChild variant="outline"><a href={`/api/provider/vehicles/${vehicleId}/certificate/download?view=1`} target="_blank" rel="noopener noreferrer"><Eye /> View certificate</a></Button> : null}
             {certificate.certificate_number ? <Button asChild variant="outline"><a href={`/api/provider/vehicles/${vehicleId}/certificate/download`}><Download /> Download certificate PDF</a></Button> : null}
             {canManage ? <Button disabled={!certificate.can_generate || busy} onClick={() => setInstallationDialogOpen(true)} className="bg-emerald-800 hover:bg-emerald-900"><RefreshCw />{certificate.certificate_number ? "Generate replacement certificate" : "Generate certificate"}</Button> : null}
           </div>
-          {showPreview && certificate.certificate_number ? <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
-            <div className="border-b bg-slate-50 px-4 py-3 text-sm font-medium">Certificate preview</div>
-            <iframe className="h-[min(75vh,920px)] w-full" src={`/api/provider/vehicles/${vehicleId}/certificate/download#view=FitH`} title={`Certificate ${certificate.certificate_number}`} />
-          </div> : null}
           <Dialog open={installationDialogOpen} onOpenChange={setInstallationDialogOpen}>
             <DialogContent>
               <DialogHeader>
