@@ -81,3 +81,4 @@ class VehicleIdentityAvailability(BaseModel):
 
 class CertificateGenerationRequest(BaseModel):
     vts_installation_date: date
+    certificate_expires_at: date

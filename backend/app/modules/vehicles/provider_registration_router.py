@@ -1,6 +1,6 @@
 import secrets
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote
@@ -588,7 +588,9 @@ async def generate_provider_vehicle_certificate(
     vehicle, provider = await get_provider_vehicle(session, actor=actor, vehicle_id=vehicle_id)
     if payload.vts_installation_date > date.today():
         raise HTTPException(status_code=422, detail="VTS installation date cannot be in the future")
-    requirements, document_expiry = await certificate_readiness(session, vehicle)
+    if payload.certificate_expires_at <= date.today():
+        raise HTTPException(status_code=422, detail="Certificate expiry date must be after today")
+    requirements, _ = await certificate_readiness(session, vehicle)
     if requirements:
         raise HTTPException(
             status_code=422,
@@ -596,7 +598,7 @@ async def generate_provider_vehicle_certificate(
         )
 
     issued_at = date.today()
-    expires_at = min(issued_at + timedelta(days=365), document_expiry) if document_expiry else issued_at + timedelta(days=365)
+    expires_at = payload.certificate_expires_at
     vehicle.certificate_number = f"VTS-{issued_at:%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
     vehicle.certificate_issued_at = issued_at
     vehicle.certificate_expires_at = expires_at

@@ -36,6 +36,15 @@ function monthsAgoDate(months: number) {
   return `${year}-${month}-${day}`
 }
 
+function monthsAheadDate(months: number) {
+  const today = new Date()
+  const value = new Date(today.getFullYear(), today.getMonth() + months, today.getDate())
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, "0")
+  const day = String(value.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
 function todayDate() {
   return monthsAgoDate(0)
 }
@@ -47,6 +56,7 @@ export function VehicleCertificateManager({ vehicleId, canManage }: { vehicleId:
   const [showPreview, setShowPreview] = useState(false)
   const [installationDialogOpen, setInstallationDialogOpen] = useState(false)
   const [installationDate, setInstallationDate] = useState(monthsAgoDate(1))
+  const [certificateExpiryDate, setCertificateExpiryDate] = useState(monthsAheadDate(1))
 
   async function load() {
     const response = await fetch(`/api/provider/vehicles/${vehicleId}/certificate`)
@@ -64,7 +74,7 @@ export function VehicleCertificateManager({ vehicleId, canManage }: { vehicleId:
       const response = await fetch(`/api/provider/vehicles/${vehicleId}/certificate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vts_installation_date: installationDate }),
+        body: JSON.stringify({ vts_installation_date: installationDate, certificate_expires_at: certificateExpiryDate }),
       })
       const data = (await response.json().catch(() => null)) as Certificate | { message?: string } | null
       if (!response.ok) throw new Error((data as { message?: string } | null)?.message || "Unable to generate certificate.")
@@ -102,8 +112,8 @@ export function VehicleCertificateManager({ vehicleId, canManage }: { vehicleId:
           <Dialog open={installationDialogOpen} onOpenChange={setInstallationDialogOpen}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Set VTS installation date</DialogTitle>
-                <DialogDescription>This date is saved to the vehicle record and shown on the certificate.</DialogDescription>
+                <DialogTitle>Set certificate dates</DialogTitle>
+                <DialogDescription>Both dates are saved to the vehicle record and shown on the certificate.</DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
                 <label className="block text-sm font-medium" htmlFor="vts-installation-date">VTS installation date</label>
@@ -112,9 +122,15 @@ export function VehicleCertificateManager({ vehicleId, canManage }: { vehicleId:
                   <p className="mb-2 text-xs text-muted-foreground">Set automatically from today</p>
                   <div className="flex flex-wrap gap-2">{[1, 2, 3].map((months) => <Button key={months} type="button" size="sm" variant={installationDate === monthsAgoDate(months) ? "default" : "outline"} onClick={() => setInstallationDate(monthsAgoDate(months))}>{months} month{months > 1 ? "s" : ""} ago</Button>)}</div>
                 </div>
+                <div className="border-t pt-4">
+                  <label className="block text-sm font-medium" htmlFor="certificate-expiry-date">Certificate expiry date</label>
+                  <input id="certificate-expiry-date" type="date" min={monthsAheadDate(0)} value={certificateExpiryDate} onChange={(event) => setCertificateExpiryDate(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none" />
+                  <p className="mb-2 mt-3 text-xs text-muted-foreground">Set automatically from today</p>
+                  <div className="flex flex-wrap gap-2">{[1, 3, 6, 12].map((months) => <Button key={months} type="button" size="sm" variant={certificateExpiryDate === monthsAheadDate(months) ? "default" : "outline"} onClick={() => setCertificateExpiryDate(monthsAheadDate(months))}>{months} month{months > 1 ? "s" : ""}</Button>)}</div>
+                </div>
               </div>
               <DialogFooter showCloseButton>
-                <Button type="button" disabled={busy || !installationDate} onClick={() => void generate()} className="bg-emerald-800 hover:bg-emerald-900">{busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}{certificate.certificate_number ? "Generate replacement" : "Generate certificate"}</Button>
+                <Button type="button" disabled={busy || !installationDate || !certificateExpiryDate} onClick={() => void generate()} className="bg-emerald-800 hover:bg-emerald-900">{busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}{certificate.certificate_number ? "Generate replacement" : "Generate certificate"}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
