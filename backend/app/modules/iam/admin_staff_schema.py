@@ -41,7 +41,7 @@ class AdminStaffCreate(BaseModel):
     email: EmailStr
     mobile: str | None = Field(default=None, min_length=10, max_length=20)
     username: str | None = Field(default=None, min_length=3, max_length=80)
-    temporary_password: str = Field(min_length=10, max_length=128)
+    temporary_password: str = Field(min_length=6, max_length=128)
     organization_public_id: uuid.UUID
     role_codes: list[str] = Field(min_length=1)
     designation: str | None = Field(default=None, max_length=140)

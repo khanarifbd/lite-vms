@@ -8,7 +8,7 @@ import { AUTH_COOKIE_NAME, authCookieOptions } from "@/lib/auth/cookies"
 const passwordSchema = z
   .object({
     currentPassword: z.string().min(1).max(128),
-    newPassword: z.string().min(12).max(128),
+    newPassword: z.string().min(6).max(128),
   })
   .refine((value) => value.currentPassword !== value.newPassword, {
     message: "The new password must be different from the current password.",

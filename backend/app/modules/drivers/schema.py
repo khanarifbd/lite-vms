@@ -107,7 +107,7 @@ class DriverDetails(BaseModel):
 
 class DriverSelfRegister(DriverDetails):
     login_username: str = Field(min_length=3, max_length=64)
-    password: str = Field(min_length=12, max_length=128)
+    password: str = Field(min_length=6, max_length=128)
 
     @field_validator("login_username")
     @classmethod
@@ -117,7 +117,7 @@ class DriverSelfRegister(DriverDetails):
 
 class ManagedDriverRegister(DriverDetails):
     login_username: str | None = Field(default=None, min_length=3, max_length=64)
-    temporary_password: str | None = Field(default=None, min_length=12, max_length=128)
+    temporary_password: str | None = Field(default=None, min_length=6, max_length=128)
 
     @field_validator("login_username")
     @classmethod
@@ -284,7 +284,7 @@ class DriverMobilePasswordResetRequest(BaseModel):
 class DriverMobilePasswordResetConfirm(BaseModel):
     challenge_id: uuid.UUID
     otp: str = Field(pattern=r"^\d{6}$")
-    new_password: str = Field(min_length=12, max_length=128)
+    new_password: str = Field(min_length=6, max_length=128)
 
 
 class DriverMobilePasswordResetRequestResult(BaseModel):

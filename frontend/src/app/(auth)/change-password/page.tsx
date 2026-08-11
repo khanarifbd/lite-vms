@@ -43,7 +43,7 @@ export default async function ChangePasswordPage() {
             </h1>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               Hello {user.display_name}. Your administrator requires a new password before
-              you can access the platform. Use at least 12 characters.
+              you can access the platform. Use at least 6 characters.
             </p>
           </div>
 

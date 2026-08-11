@@ -19,7 +19,7 @@ const passwordSchema = z
     currentPassword: z.string().min(1, "Current password is required"),
     newPassword: z
       .string()
-      .min(12, "New password must contain at least 12 characters")
+      .min(6, "New password must contain at least 6 characters")
       .max(128, "New password is too long"),
     confirmPassword: z.string().min(1, "Confirm your new password"),
   })

@@ -80,7 +80,7 @@ class OwnerRegister(BaseModel):
     admin_email: str
     admin_mobile: str | None = Field(default=None, max_length=30)
     admin_username: str | None = Field(default=None, min_length=3, max_length=50)
-    password: str = Field(min_length=12, max_length=128)
+    password: str = Field(min_length=6, max_length=128)
 
     @field_validator("phone", "alternate_phone", "authorized_person_mobile", "admin_mobile")
     @classmethod
@@ -112,7 +112,7 @@ class ProviderOwnerRegister(OwnerRegister):
     contact_email: str
     contact_mobile: str | None = Field(default=None, max_length=30)
     login_username: str | None = Field(default=None, min_length=3, max_length=50)
-    temporary_password: str | None = Field(default=None, min_length=12, max_length=128)
+    temporary_password: str | None = Field(default=None, min_length=6, max_length=128)
 
     @field_validator("contact_email")
     @classmethod
@@ -147,8 +147,8 @@ class OwnerAccountResetResult(BaseModel):
 class OwnerTemporaryPasswordReset(BaseModel):
     identity_or_registration_reference: str = Field(min_length=3, max_length=120)
     username: str = Field(min_length=3, max_length=180)
-    temporary_password: str = Field(min_length=12, max_length=128)
-    new_password: str = Field(min_length=12, max_length=128)
+    temporary_password: str = Field(min_length=6, max_length=128)
+    new_password: str = Field(min_length=6, max_length=128)
 
 
 class OwnerApplicationUpdate(BaseModel):

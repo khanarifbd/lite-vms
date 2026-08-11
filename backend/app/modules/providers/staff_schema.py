@@ -19,7 +19,7 @@ class ProviderStaffCreate(BaseModel):
     email: str = Field(min_length=5, max_length=180)
     mobile: str | None = Field(default=None, max_length=30)
     full_name: str = Field(min_length=2, max_length=180)
-    temporary_password: str = Field(min_length=12, max_length=128)
+    temporary_password: str = Field(min_length=6, max_length=128)
     role_code: UserRole
     employee_id: str | None = Field(default=None, max_length=100)
     designation: str | None = Field(default=None, max_length=140)
@@ -87,7 +87,7 @@ class ProviderStaffUpdate(BaseModel):
 class ProviderStaffPasswordReset(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    new_password: str = Field(min_length=12, max_length=128)
+    new_password: str = Field(min_length=6, max_length=128)
     reason: str | None = Field(default=None, max_length=500)
 
 

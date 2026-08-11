@@ -38,7 +38,7 @@ class ProviderMobileOwnerRegister(BaseModel):
     email: str | None = Field(default=None, max_length=180)
     login_username: str | None = Field(default=None, min_length=3, max_length=50)
     contact_name: str = Field(min_length=2, max_length=180)
-    temporary_password: str | None = Field(default=None, min_length=12, max_length=128)
+    temporary_password: str | None = Field(default=None, min_length=6, max_length=128)
 
     date_of_birth: date | None = None
     father_name: str | None = Field(default=None, max_length=180)

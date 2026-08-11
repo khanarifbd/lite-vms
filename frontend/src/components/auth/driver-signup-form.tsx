@@ -29,8 +29,8 @@ const schema = z
     licenceNumber: z.string().trim().min(3, "Enter your driving licence number").max(100),
     licenceType: z.enum(["professional", "non_professional", "learner"]),
     licenceExpiryDate: z.string().min(1, "Select the licence expiry date"),
-    password: z.string().min(12, "Use at least 12 characters").max(128),
-    confirmPassword: z.string().min(12, "Confirm the password").max(128),
+    password: z.string().min(6, "Use at least 6 characters").max(128),
+    confirmPassword: z.string().min(6, "Confirm the password").max(128),
   })
   .refine((value) => value.password === value.confirmPassword, {
     message: "Passwords do not match",
@@ -138,7 +138,7 @@ export function DriverSignupForm() {
         <div className="space-y-1.5">
           <Label htmlFor="password" className="text-xs sm:text-sm">Password</Label>
           <div className="relative">
-            <Input id="password" type={showPassword ? "text" : "password"} autoComplete="new-password" className="h-10 pr-10 text-sm" placeholder="Minimum 12 characters" disabled={loading} {...register("password")} />
+            <Input id="password" type={showPassword ? "text" : "password"} autoComplete="new-password" className="h-10 pr-10 text-sm" placeholder="Minimum 6 characters" disabled={loading} {...register("password")} />
             <button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" disabled={loading} aria-label={showPassword ? "Hide passwords" : "Show passwords"}>
               {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
             </button>

@@ -19,8 +19,8 @@ const schema = z
     ownerType: z.enum(["individual", "company"]),
     fullName: z.string().trim().min(2, "Enter the owner or company name").max(180),
     mobile: z.string().trim().min(10, "Enter a valid mobile number").max(30),
-    password: z.string().min(12, "Use at least 12 characters").max(128),
-    confirmPassword: z.string().min(12, "Confirm the password").max(128),
+    password: z.string().min(6, "Use at least 6 characters").max(128),
+    confirmPassword: z.string().min(6, "Confirm the password").max(128),
   })
   .refine((value) => value.password === value.confirmPassword, {
     message: "Passwords do not match",
@@ -129,7 +129,7 @@ export function VehicleOwnerSignupForm() {
               id="password"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
-              placeholder="Minimum 12 characters"
+              placeholder="Minimum 6 characters"
               className="h-10 pr-10 text-sm"
               disabled={loading}
               aria-invalid={Boolean(errors.password)}

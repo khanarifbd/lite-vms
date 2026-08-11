@@ -30,7 +30,7 @@ class OwnerMobilePasswordResetRequestResult(BaseModel):
 class OwnerMobilePasswordResetConfirm(BaseModel):
     challenge_id: uuid.UUID
     otp: str = Field(pattern=r"^\d{6}$")
-    new_password: str = Field(min_length=12, max_length=128)
+    new_password: str = Field(min_length=6, max_length=128)
 
 
 class OwnerMobilePasswordResetResult(BaseModel):

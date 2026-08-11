@@ -243,7 +243,7 @@ export function ProviderOwnerMobileRegistrationForm() {
             <div className="space-y-2"><Label>Primary login mobile</Label><Input value={mobile} disabled /></div>
             <div className="space-y-2"><Label htmlFor="email">Login email (optional)</Label><Input id="email" name="email" type="email" /></div>
             <div className="space-y-2"><Label htmlFor="login_username">Login username (optional)</Label><Input id="login_username" name="login_username" /></div>
-            <div className="space-y-2"><Label htmlFor="temporary_password">Temporary password (optional)</Label><Input id="temporary_password" name="temporary_password" type="password" minLength={12} /></div>
+            <div className="space-y-2"><Label htmlFor="temporary_password">Temporary password (optional)</Label><Input id="temporary_password" name="temporary_password" type="password" minLength={6} /></div>
           </CardContent>
         </Card>
 

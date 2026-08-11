@@ -19,8 +19,8 @@ const schema = z
       .optional()
       .default(""),
     mobile: z.string().trim().min(10).max(30),
-    password: z.string().min(12).max(128),
-    confirmPassword: z.string().min(12).max(128),
+    password: z.string().min(6).max(128),
+    confirmPassword: z.string().min(6).max(128),
     licenceNumber: z.string().trim().min(3).max(100),
     licenceType: z.enum(["professional", "non_professional", "learner"]),
     licenceExpiryDate: z.string().date(),

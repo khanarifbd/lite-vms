@@ -107,7 +107,7 @@ class UserRegister(BaseModel):
     email: str = Field(min_length=5, max_length=180)
     mobile: str = Field(min_length=10, max_length=30)
     full_name: str = Field(min_length=2, max_length=180)
-    password: str = Field(min_length=12, max_length=128)
+    password: str = Field(min_length=6, max_length=128)
 
     @field_validator("email")
     @classmethod
@@ -127,7 +127,7 @@ class UserAdminCreate(BaseModel):
     email: str = Field(min_length=5, max_length=180)
     mobile: str | None = None
     full_name: str = Field(min_length=2, max_length=180)
-    password: str = Field(min_length=12, max_length=128)
+    password: str = Field(min_length=6, max_length=128)
     tenant_public_id: uuid.UUID
     organization_public_id: uuid.UUID
     role_codes: list[str] = Field(min_length=1)
@@ -176,11 +176,11 @@ class UserSelfUpdate(BaseModel):
 
 class PasswordChange(BaseModel):
     current_password: str = Field(min_length=1, max_length=128)
-    new_password: str = Field(min_length=12, max_length=128)
+    new_password: str = Field(min_length=6, max_length=128)
 
 
 class PasswordReset(BaseModel):
-    new_password: str = Field(min_length=12, max_length=128)
+    new_password: str = Field(min_length=6, max_length=128)
     must_change_password: bool = True
     reason: str | None = Field(default=None, max_length=500)
 

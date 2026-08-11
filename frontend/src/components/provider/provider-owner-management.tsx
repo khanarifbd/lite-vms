@@ -457,7 +457,7 @@ function RegistrationDialog({
                 <Field name="contactEmail" label="Login email" type="email" required />
                 <Field name="contactMobile" label="Login mobile" placeholder="+8801..." />
                 <Field name="loginUsername" label="Login username" required minLength={3} />
-                <Field name="temporaryPassword" label="Temporary password" type="password" required minLength={12} />
+                <Field name="temporaryPassword" label="Temporary password" type="password" required minLength={6} />
               </div>
             </section>
 

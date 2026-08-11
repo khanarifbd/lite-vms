@@ -130,8 +130,8 @@ class Settings(BaseSettings):
                 "BOOTSTRAP_SUPER_ADMIN_EMAIL and BOOTSTRAP_SUPER_ADMIN_PASSWORD "
                 "must be configured together"
             )
-        if password_set and len(self.bootstrap_super_admin_password) < 12:
-            raise ValueError("BOOTSTRAP_SUPER_ADMIN_PASSWORD must be at least 12 characters")
+        if password_set and len(self.bootstrap_super_admin_password) < 6:
+            raise ValueError("BOOTSTRAP_SUPER_ADMIN_PASSWORD must be at least 6 characters")
         return self
 
 

@@ -23,7 +23,7 @@ class PublicDriverApplicantRegister(BaseModel):
     full_name: str = Field(min_length=2, max_length=180)
     email: str | None = Field(default=None, min_length=5, max_length=180)
     mobile: str = Field(min_length=10, max_length=30)
-    password: str = Field(min_length=12, max_length=128)
+    password: str = Field(min_length=6, max_length=128)
     licence_number: str = Field(min_length=3, max_length=100)
     licence_type: DriverLicenceType
     licence_expiry_date: date

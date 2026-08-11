@@ -27,7 +27,7 @@ export const createProviderStaffSchema = z.object({
   mobile: optionalMobileSchema,
   temporaryPassword: z
     .string()
-    .min(12, "Temporary password must contain at least 12 characters")
+    .min(6, "Temporary password must contain at least 6 characters")
     .max(128),
   roleCode: providerStaffRoleSchema,
   employeeId: optionalTextSchema(100),
@@ -47,7 +47,7 @@ export const updateProviderStaffSchema = z.object({
 })
 
 export const resetProviderStaffPasswordSchema = z.object({
-  newPassword: z.string().min(12, "Password must contain at least 12 characters").max(128),
+  newPassword: z.string().min(6, "Password must contain at least 6 characters").max(128),
   reason: optionalTextSchema(500),
 })
 
