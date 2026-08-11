@@ -229,9 +229,9 @@ def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner) -> BytesIO:
         page.drawCentredString(width / 2, y(560 + index * 30), line)
 
     remaining_days = max((vehicle.certificate_expires_at - date.today()).days, 0)
-    gps_connected = vehicle.last_received_at is not None
-    gps_text = "Connected" if gps_connected else "Not configured"
-    gps_color = colors.HexColor("#008200") if gps_connected else colors.HexColor("#505958")
+    # A certificate is issued only after VTS installation is recorded, so it represents an active GPS service.
+    gps_text = "Active"
+    gps_color = colors.HexColor("#008200")
     vehicle_rows = [
         ("Owner Name:", owner.name or "Not recorded", colors.HexColor("#231f20")),
         ("Registration No.", vehicle.registration_number_display or vehicle.registration_number, colors.HexColor("#231f20")),
