@@ -36,7 +36,7 @@ class ProviderMobileOwnerRegister(BaseModel):
     owner_name: str = Field(min_length=2, max_length=180)
     mobile: str
     email: str | None = Field(default=None, max_length=180)
-    login_username: str | None = Field(default=None, min_length=3, max_length=50)
+    login_username: str = Field(min_length=3, max_length=50)
     contact_name: str = Field(min_length=2, max_length=180)
     temporary_password: str | None = Field(default=None, min_length=6, max_length=128)
 
@@ -77,8 +77,8 @@ class ProviderMobileOwnerRegister(BaseModel):
 
     @field_validator("login_username")
     @classmethod
-    def validate_username(cls, value: str | None) -> str | None:
-        return normalize_username(value) if value else None
+    def validate_username(cls, value: str) -> str:
+        return normalize_username(value)
 
     @model_validator(mode="after")
     def validate_registration(self) -> "ProviderMobileOwnerRegister":

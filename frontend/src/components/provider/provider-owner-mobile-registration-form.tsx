@@ -235,14 +235,14 @@ export function ProviderOwnerMobileRegistrationForm() {
           <CardHeader>
             <CardTitle>3. Login account</CardTitle>
             <p className="text-sm leading-6 text-muted-foreground">
-              The mobile number above is always created as the Primary login. Email and username are optional Secondary identifiers and can be added later from Settings.
+              A username is required for the owner to sign in. Mobile and email are saved as additional contact and login identifiers.
             </p>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2"><Label htmlFor="contact_name">Account holder name *</Label><Input id="contact_name" name="contact_name" required /></div>
-            <div className="space-y-2"><Label>Primary login mobile</Label><Input value={mobile} disabled /></div>
+            <div className="space-y-2"><Label>Registered mobile</Label><Input value={mobile} disabled /></div>
             <div className="space-y-2"><Label htmlFor="email">Login email (optional)</Label><Input id="email" name="email" type="email" /></div>
-            <div className="space-y-2"><Label htmlFor="login_username">Login username (optional)</Label><Input id="login_username" name="login_username" /></div>
+            <div className="space-y-2"><Label htmlFor="login_username">Login username *</Label><Input id="login_username" name="login_username" minLength={3} required /></div>
             <div className="space-y-2"><Label htmlFor="temporary_password">Temporary password (optional)</Label><Input id="temporary_password" name="temporary_password" type="password" minLength={6} /></div>
           </CardContent>
         </Card>
