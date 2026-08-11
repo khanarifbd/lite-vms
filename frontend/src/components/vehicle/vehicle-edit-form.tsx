@@ -54,9 +54,12 @@ export function VehicleEditForm({ vehicle, apiBase, detailsBase, mode }: Vehicle
   const formRef = useRef<HTMLFormElement>(null)
   const [pendingMode, setPendingMode] = useState<SaveMode | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const isGoMaxImported = vehicle.registration_number.startsWith("GOMAX-")
 
   function buildPayload(data: FormData): VehicleUpdatePayload {
-    const registrationNumber = readText(data, "registration_number")
+    const registrationNumber = isGoMaxImported
+      ? readText(data, "official_registration_number") || vehicle.registration_number
+      : readText(data, "registration_number")
     const chassisNumber = readText(data, "chassis_number")
     const vehicleType = readText(data, "vehicle_type")
     if (!registrationNumber || !chassisNumber || !vehicleType) {
@@ -65,7 +68,9 @@ export function VehicleEditForm({ vehicle, apiBase, detailsBase, mode }: Vehicle
 
     return {
       registration_number: registrationNumber,
-      registration_number_display: readText(data, "registration_number_display"),
+      registration_number_display: isGoMaxImported
+        ? readText(data, "vehicle_display_name")
+        : readText(data, "registration_number_display"),
       chassis_number: chassisNumber,
       engine_number: readText(data, "engine_number"),
       vehicle_type: vehicleType,
@@ -206,12 +211,36 @@ export function VehicleEditForm({ vehicle, apiBase, detailsBase, mode }: Vehicle
         <Card>
           <CardHeader><CardTitle>Identity and basic information</CardTitle></CardHeader>
           <CardContent className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            <Field label="Registration number" hint="Checked against the global vehicle registry.">
-              <Input name="registration_number" required maxLength={80} defaultValue={vehicle.registration_number} />
-            </Field>
-            <Field label="Display registration number">
-              <Input name="registration_number_display" maxLength={80} defaultValue={vehicle.registration_number_display || ""} />
-            </Field>
+            {isGoMaxImported ? (
+              <>
+                <Field
+                  label="Vehicle display name"
+                  hint="Imported from GoMax. You can update this name at any time."
+                >
+                  <Input
+                    name="vehicle_display_name"
+                    required
+                    maxLength={80}
+                    defaultValue={vehicle.registration_number_display || vehicle.registration_number}
+                  />
+                </Field>
+                <Field
+                  label="Official registration number"
+                  hint="Add this later when available. Saving it will replace the temporary GoMax ID."
+                >
+                  <Input name="official_registration_number" maxLength={80} placeholder="Add registration number later" />
+                </Field>
+              </>
+            ) : (
+              <>
+                <Field label="Registration number" hint="Checked against the global vehicle registry.">
+                  <Input name="registration_number" required maxLength={80} defaultValue={vehicle.registration_number} />
+                </Field>
+                <Field label="Display registration number">
+                  <Input name="registration_number_display" maxLength={80} defaultValue={vehicle.registration_number_display || ""} />
+                </Field>
+              </>
+            )}
             <Field label="Chassis number" hint="Checked against the global vehicle registry.">
               <Input name="chassis_number" required maxLength={120} defaultValue={vehicle.chassis_number} />
             </Field>
