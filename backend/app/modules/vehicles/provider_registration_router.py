@@ -1,11 +1,18 @@
 import secrets
 import uuid
 from datetime import UTC, date, datetime, timedelta
+from io import BytesIO
 from urllib.parse import quote
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 import httpx
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.pdfgen import canvas
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -118,6 +125,69 @@ def certificate_payload(vehicle: Vehicle, *, requirements: list[str]) -> dict[st
         "requirements": requirements,
         "can_generate": not requirements,
     }
+
+
+def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner) -> BytesIO:
+    """Render a single-page provider vehicle compliance certificate."""
+    if not vehicle.certificate_number or not vehicle.certificate_issued_at or not vehicle.certificate_expires_at:
+        raise ValueError("Certificate has not been issued")
+
+    output = BytesIO()
+    page = canvas.Canvas(output, pagesize=A4)
+    width, height = A4
+    margin = 22 * mm
+
+    page.setFillColor(colors.HexColor("#005c66"))
+    page.rect(0, height - 52 * mm, width, 52 * mm, stroke=0, fill=1)
+    page.setFillColor(colors.white)
+    page.setFont("Helvetica-Bold", 17)
+    page.drawString(margin, height - 24 * mm, "Vehicle Compliance Certificate")
+    page.setFont("Helvetica", 9)
+    page.drawString(margin, height - 32 * mm, "VTS Provider Gateway - National Integration Gateway")
+    page.setFillColor(colors.HexColor("#bdeff2"))
+    page.setFont("Helvetica-Bold", 9)
+    page.drawRightString(width - margin, height - 31 * mm, vehicle.certificate_number)
+
+    page.setFillColor(colors.HexColor("#18222a"))
+    page.setFont("Helvetica-Bold", 13)
+    page.drawString(margin, height - 72 * mm, vehicle.registration_number_display or vehicle.registration_number)
+    page.setFont("Helvetica", 9)
+    page.setFillColor(colors.HexColor("#5e7078"))
+    page.drawString(margin, height - 80 * mm, "This certificate confirms that the listed vehicle documents were current at issue.")
+
+    rows = [
+        ("Vehicle owner", owner.name),
+        ("Owner reference", owner.owner_code),
+        ("Registration number", vehicle.registration_number),
+        ("Certificate issued", vehicle.certificate_issued_at.strftime("%d %b %Y")),
+        ("Certificate expires", vehicle.certificate_expires_at.strftime("%d %b %Y")),
+    ]
+    top = height - 102 * mm
+    row_height = 13 * mm
+    for index, (label, value) in enumerate(rows):
+        y = top - index * row_height
+        page.setFillColor(colors.HexColor("#f2f7f8") if index % 2 == 0 else colors.white)
+        page.roundRect(margin, y - 8 * mm, width - 2 * margin, 11 * mm, 2 * mm, stroke=0, fill=1)
+        page.setFillColor(colors.HexColor("#5e7078"))
+        page.setFont("Helvetica", 8)
+        page.drawString(margin + 4 * mm, y - 1 * mm, label.upper())
+        page.setFillColor(colors.HexColor("#18222a"))
+        page.setFont("Helvetica-Bold", 10)
+        page.drawRightString(width - margin - 4 * mm, y - 1 * mm, str(value or "—"))
+
+    page.setStrokeColor(colors.HexColor("#99dfe5"))
+    page.line(margin, 61 * mm, width - margin, 61 * mm)
+    page.setFillColor(colors.HexColor("#5e7078"))
+    page.setFont("Helvetica", 8)
+    page.drawString(margin, 51 * mm, "Issued electronically by the VTS Provider Gateway.")
+    page.drawString(margin, 45 * mm, "Certificate validity is subject to the expiry date and current vehicle-document status.")
+    page.setFont("Helvetica-Bold", 8)
+    page.setFillColor(colors.HexColor("#005c66"))
+    page.drawRightString(width - margin, 45 * mm, "DIGITALLY GENERATED")
+    page.showPage()
+    page.save()
+    output.seek(0)
+    return output
 
 
 @router.post("/gomax-import")
@@ -453,6 +523,27 @@ async def generate_provider_vehicle_certificate(
     )
     await session.commit()
     return certificate_payload(vehicle, requirements=[])
+
+
+@router.get("/{vehicle_id}/certificate/download")
+async def download_provider_vehicle_certificate(
+    vehicle_id: uuid.UUID,
+    actor: Annotated[User, Depends(require_roles(*PROVIDER_VEHICLE_READ_ROLES))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> StreamingResponse:
+    vehicle, _ = await get_provider_vehicle(session, actor=actor, vehicle_id=vehicle_id)
+    if not vehicle.certificate_number:
+        raise HTTPException(status_code=404, detail="Certificate has not been issued")
+    owner = await session.get(VehicleOwner, vehicle.owner_id)
+    if owner is None:
+        raise HTTPException(status_code=404, detail="Vehicle owner not found")
+    pdf = certificate_pdf(vehicle, owner)
+    filename = f"{vehicle.certificate_number}.pdf"
+    return StreamingResponse(
+        pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.patch("/{vehicle_id}", response_model=VehicleRead)

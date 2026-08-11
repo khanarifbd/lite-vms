@@ -1,6 +1,6 @@
 "use client"
 
-import { Award, FileText, Loader2, RefreshCw } from "lucide-react"
+import { Award, Download, FileText, Loader2, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 
@@ -67,7 +67,10 @@ export function VehicleCertificateManager({ vehicleId, canManage }: { vehicleId:
         <CardContent className="space-y-5">
           {certificate.requirements.length ? <Alert className="border-amber-200 bg-amber-50 text-amber-950"><FileText /><AlertTitle>Documents required before certificate issue</AlertTitle><AlertDescription><p>Update these documents first: {certificate.requirements.join(", ")}.</p><Button asChild size="sm" variant="outline" className="mt-3"><Link href={`/provider/vehicles/${vehicleId}/documents`}>Open documents</Link></Button></AlertDescription></Alert> : null}
           <div className="grid gap-4 sm:grid-cols-3"><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-muted-foreground">Certificate no.</p><p className="mt-2 font-semibold">{certificate.certificate_number || "Not issued"}</p></div><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-muted-foreground">Issued on</p><p className="mt-2 font-semibold">{formatDate(certificate.issued_at)}</p></div><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-muted-foreground">Expires on</p><p className="mt-2 font-semibold">{formatDate(certificate.expires_at)}</p></div></div>
-          {canManage ? <Button disabled={!certificate.can_generate || busy} onClick={() => void generate()} className="bg-emerald-800 hover:bg-emerald-900">{busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}{certificate.certificate_number ? "Generate replacement certificate" : "Generate certificate"}</Button> : null}
+          <div className="flex flex-wrap gap-3">
+            {certificate.certificate_number ? <Button asChild variant="outline"><a href={`/api/provider/vehicles/${vehicleId}/certificate/download`}><Download /> Download certificate PDF</a></Button> : null}
+            {canManage ? <Button disabled={!certificate.can_generate || busy} onClick={() => void generate()} className="bg-emerald-800 hover:bg-emerald-900">{busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}{certificate.certificate_number ? "Generate replacement certificate" : "Generate certificate"}</Button> : null}
+          </div>
         </CardContent>
       </Card> : null}
     </div>
