@@ -197,6 +197,7 @@ class VehicleRead(BaseModel):
     route_permit_number: str | None
     route_permit_area: str | None
     route_permit_expiry_date: date | None
+    vts_installation_date: date | None
     notes: str | None
     owner_id: uuid.UUID
     owner: VehicleOwnerSummary

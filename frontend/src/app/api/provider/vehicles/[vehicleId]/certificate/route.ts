@@ -22,12 +22,15 @@ export async function GET(_: Request, context: RouteContext) {
   }
 }
 
-export async function POST(_: Request, context: RouteContext) {
+export async function POST(request: Request, context: RouteContext) {
   const { vehicleId } = await context.params
   try {
+    const body = await request.json()
     return NextResponse.json(
       await authenticatedBackendFetch(`/vehicles/provider-registration/${vehicleId}/certificate`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       })
     )
   } catch (error) {

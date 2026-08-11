@@ -77,3 +77,7 @@ class VehicleIdentityAvailability(BaseModel):
     registration_number_available: bool
     chassis_number_available: bool
     engine_number_available: bool
+
+
+class CertificateGenerationRequest(BaseModel):
+    vts_installation_date: date

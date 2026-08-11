@@ -45,6 +45,7 @@ class Vehicle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     route_permit_number: Mapped[str | None] = mapped_column(String(120), nullable=True)
     route_permit_area: Mapped[str | None] = mapped_column(Text, nullable=True)
     route_permit_expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    vts_installation_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     certificate_number: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True, index=True)
     certificate_issued_at: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     certificate_expires_at: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)

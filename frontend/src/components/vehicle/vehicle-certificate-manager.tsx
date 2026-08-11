@@ -8,12 +8,14 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 type Certificate = {
   certificate_number: string | null
   issued_at: string | null
   expires_at: string | null
   generated_at: string | null
+  vts_installation_date: string | null
   status: "not_issued" | "active" | "expired"
   requirements: string[]
   can_generate: boolean
@@ -25,11 +27,26 @@ function formatDate(value: string | null) {
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-BD", { dateStyle: "medium" }).format(date)
 }
 
+function monthsAgoDate(months: number) {
+  const today = new Date()
+  const value = new Date(today.getFullYear(), today.getMonth() - months, today.getDate())
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, "0")
+  const day = String(value.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function todayDate() {
+  return monthsAgoDate(0)
+}
+
 export function VehicleCertificateManager({ vehicleId, canManage }: { vehicleId: string; canManage: boolean }) {
   const [certificate, setCertificate] = useState<Certificate | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [installationDialogOpen, setInstallationDialogOpen] = useState(false)
+  const [installationDate, setInstallationDate] = useState(monthsAgoDate(1))
 
   async function load() {
     const response = await fetch(`/api/provider/vehicles/${vehicleId}/certificate`)
@@ -44,10 +61,15 @@ export function VehicleCertificateManager({ vehicleId, canManage }: { vehicleId:
     setBusy(true)
     setError(null)
     try {
-      const response = await fetch(`/api/provider/vehicles/${vehicleId}/certificate`, { method: "POST" })
+      const response = await fetch(`/api/provider/vehicles/${vehicleId}/certificate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vts_installation_date: installationDate }),
+      })
       const data = (await response.json().catch(() => null)) as Certificate | { message?: string } | null
       if (!response.ok) throw new Error((data as { message?: string } | null)?.message || "Unable to generate certificate.")
       setCertificate(data as Certificate)
+      setInstallationDialogOpen(false)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to generate certificate.")
     } finally {
@@ -71,12 +93,31 @@ export function VehicleCertificateManager({ vehicleId, canManage }: { vehicleId:
           <div className="flex flex-wrap gap-3">
             {certificate.certificate_number ? <Button type="button" variant="outline" onClick={() => setShowPreview((visible) => !visible)}><Eye /> {showPreview ? "Hide certificate" : "View certificate"}</Button> : null}
             {certificate.certificate_number ? <Button asChild variant="outline"><a href={`/api/provider/vehicles/${vehicleId}/certificate/download`}><Download /> Download certificate PDF</a></Button> : null}
-            {canManage ? <Button disabled={!certificate.can_generate || busy} onClick={() => void generate()} className="bg-emerald-800 hover:bg-emerald-900">{busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}{certificate.certificate_number ? "Generate replacement certificate" : "Generate certificate"}</Button> : null}
+            {canManage ? <Button disabled={!certificate.can_generate || busy} onClick={() => setInstallationDialogOpen(true)} className="bg-emerald-800 hover:bg-emerald-900"><RefreshCw />{certificate.certificate_number ? "Generate replacement certificate" : "Generate certificate"}</Button> : null}
           </div>
           {showPreview && certificate.certificate_number ? <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
             <div className="border-b bg-slate-50 px-4 py-3 text-sm font-medium">Certificate preview</div>
             <iframe className="h-[min(75vh,920px)] w-full" src={`/api/provider/vehicles/${vehicleId}/certificate/download#view=FitH`} title={`Certificate ${certificate.certificate_number}`} />
           </div> : null}
+          <Dialog open={installationDialogOpen} onOpenChange={setInstallationDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Set VTS installation date</DialogTitle>
+                <DialogDescription>This date is saved to the vehicle record and shown on the certificate.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <label className="block text-sm font-medium" htmlFor="vts-installation-date">VTS installation date</label>
+                <input id="vts-installation-date" type="date" max={todayDate()} value={installationDate} onChange={(event) => setInstallationDate(event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none" />
+                <div>
+                  <p className="mb-2 text-xs text-muted-foreground">Set automatically from today</p>
+                  <div className="flex flex-wrap gap-2">{[1, 2, 3].map((months) => <Button key={months} type="button" size="sm" variant={installationDate === monthsAgoDate(months) ? "default" : "outline"} onClick={() => setInstallationDate(monthsAgoDate(months))}>{months} month{months > 1 ? "s" : ""} ago</Button>)}</div>
+                </div>
+              </div>
+              <DialogFooter showCloseButton>
+                <Button type="button" disabled={busy || !installationDate} onClick={() => void generate()} className="bg-emerald-800 hover:bg-emerald-900">{busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}{certificate.certificate_number ? "Generate replacement" : "Generate certificate"}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card> : null}
     </div>

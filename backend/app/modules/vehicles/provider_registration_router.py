@@ -45,6 +45,7 @@ from app.modules.vehicles.normalization import (
 from app.modules.vehicles.provider_registration_schema import (
     ProviderVehicleRegistrationCreate,
     ProviderVehicleRegistrationUpdate,
+    CertificateGenerationRequest,
     VehicleIdentityAvailability,
 )
 from app.modules.vehicles.router import find_identity_conflict, resolve_vehicle_owner
@@ -122,6 +123,7 @@ def certificate_payload(vehicle: Vehicle, *, requirements: list[str]) -> dict[st
         "issued_at": vehicle.certificate_issued_at,
         "expires_at": vehicle.certificate_expires_at,
         "generated_at": vehicle.certificate_generated_at,
+        "vts_installation_date": vehicle.vts_installation_date,
         "status": status_value,
         "requirements": requirements,
         "can_generate": not requirements,
@@ -233,7 +235,7 @@ def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner) -> BytesIO:
         ("Date of Issue", date_text(vehicle.certificate_issued_at), colors.HexColor("#231f20")),
         ("Valid Until", date_text(vehicle.certificate_expires_at), colors.HexColor("#231f20")),
         ("Remaining Days", str(remaining_days), colors.HexColor("#231f20")),
-        ("Certificate generated", date_text(vehicle.certificate_issued_at), colors.HexColor("#231f20")),
+        ("VTS Installation Date", date_text(vehicle.vts_installation_date), colors.HexColor("#231f20")),
         ("Current Status", "Active", colors.HexColor("#008200")),
     ]
     draw_card(101, 878, 560, "VEHICLE PARTICULARS", vehicle_rows)
@@ -579,10 +581,13 @@ async def get_provider_vehicle_certificate(
 @router.post("/{vehicle_id}/certificate")
 async def generate_provider_vehicle_certificate(
     vehicle_id: uuid.UUID,
+    payload: CertificateGenerationRequest,
     actor: Annotated[User, Depends(require_roles(*PROVIDER_VEHICLE_MANAGE_ROLES))],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, object]:
     vehicle, provider = await get_provider_vehicle(session, actor=actor, vehicle_id=vehicle_id)
+    if payload.vts_installation_date > date.today():
+        raise HTTPException(status_code=422, detail="VTS installation date cannot be in the future")
     requirements, document_expiry = await certificate_readiness(session, vehicle)
     if requirements:
         raise HTTPException(
@@ -595,6 +600,7 @@ async def generate_provider_vehicle_certificate(
     vehicle.certificate_number = f"VTS-{issued_at:%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
     vehicle.certificate_issued_at = issued_at
     vehicle.certificate_expires_at = expires_at
+    vehicle.vts_installation_date = payload.vts_installation_date
     vehicle.certificate_generated_at = datetime.now(UTC)
     vehicle.certificate_generated_by_user_id = actor.id
     await write_audit_log(
@@ -609,6 +615,7 @@ async def generate_provider_vehicle_certificate(
             "certificate_number": vehicle.certificate_number,
             "issued_at": issued_at.isoformat(),
             "expires_at": expires_at.isoformat(),
+            "vts_installation_date": payload.vts_installation_date.isoformat(),
         },
     )
     await session.commit()

@@ -199,6 +199,7 @@ async def build_vehicle_read(session: AsyncSession, vehicle: Vehicle) -> Vehicle
         route_permit_number=vehicle.route_permit_number,
         route_permit_area=vehicle.route_permit_area,
         route_permit_expiry_date=vehicle.route_permit_expiry_date,
+        vts_installation_date=vehicle.vts_installation_date,
         notes=vehicle.notes,
         owner_id=vehicle.owner_id,
         owner=VehicleOwnerSummary(
