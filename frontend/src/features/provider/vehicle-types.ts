@@ -18,4 +18,5 @@ export type ProviderVehicleRegistryQuery = {
   gps?: "online" | "offline" | ""
   tracking?: string
   cursor?: string
+  ownerId?: string
 }

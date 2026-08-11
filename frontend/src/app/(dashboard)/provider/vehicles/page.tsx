@@ -26,6 +26,7 @@ import type { ProviderVehiclePage } from "@/features/provider/vehicle-types"
 import { USER_ROLES, userHasAnyRole } from "@/lib/auth/roles"
 import { getAuthenticatedUser } from "@/lib/auth/server"
 import { getMyProviderApplication } from "@/lib/provider/server"
+import { getActiveProviderOwners } from "@/lib/provider/owner-server"
 import { getProviderVehicles } from "@/lib/provider/vehicle-server"
 
 export const dynamic = "force-dynamic"
@@ -79,6 +80,7 @@ type ProviderVehiclesPageProps = {
     tracking?: SearchValue
     cursor?: SearchValue
     limit?: SearchValue
+    owner?: SearchValue
   }>
 }
 
@@ -102,11 +104,12 @@ function statusLabel(value: string) {
 
 function pageHref(
   cursor: string,
-  filters: { search: string; status: string; gps: string; tracking: string; limit: number }
+  filters: { search: string; status: string; gps: string; tracking: string; limit: number; ownerId: string }
 ) {
   const params = new URLSearchParams()
   if (cursor) params.set("cursor", cursor)
   params.set("limit", String(filters.limit))
+  if (filters.ownerId) params.set("owner", filters.ownerId)
   if (filters.search) params.set("search", filters.search)
   if (filters.status) params.set("status", filters.status)
   if (filters.gps) params.set("gps", filters.gps)
@@ -179,6 +182,17 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
     ? requestedLimit
     : DEFAULT_PAGE_SIZE
 
+  let ownerOptions: Awaited<ReturnType<typeof getActiveProviderOwners>>["items"] = []
+  try {
+    ownerOptions = (await getActiveProviderOwners()).items.filter((item) => item.link.status === "active")
+  } catch {
+    // The vehicle registry remains available when the optional owner filter cannot load.
+  }
+  const requestedOwnerId = firstValue(params.owner) || ""
+  const ownerId = ownerOptions.some((item) => item.owner.id === requestedOwnerId)
+    ? requestedOwnerId
+    : ""
+
   let vehicles: ProviderVehiclePage | null = null
   let loadError: string | null = null
   try {
@@ -189,6 +203,7 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
       gps,
       tracking,
       cursor,
+      ownerId,
     })
   } catch (error) {
     loadError =
@@ -210,8 +225,8 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
   }
 
   const hasNextPage = Boolean(vehicles.next_cursor)
-  const hasFilters = Boolean(search || status || (trackingUiEnabled && (gps || tracking)))
-  const filters = { search, status, gps, tracking, limit }
+  const hasFilters = Boolean(search || status || ownerId || (trackingUiEnabled && (gps || tracking)))
+  const filters = { search, status, gps, tracking, limit, ownerId }
   const canManage = userHasAnyRole(user, vehicleManageRoles)
 
   return (
@@ -238,7 +253,7 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
             </div>
 
             <form
-              className="mt-4 grid gap-3 xl:grid-cols-[minmax(260px,1fr)_210px_150px_auto_auto]"
+              className="mt-4 grid gap-3 xl:grid-cols-[minmax(260px,1fr)_210px_220px_150px_auto_auto]"
               method="get"
             >
               <div className="relative">
@@ -263,6 +278,19 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                 {verificationStatuses.map((value) => (
                   <option key={value} value={value}>
                     {statusLabel(value)}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Vehicle owner"
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                defaultValue={ownerId}
+                name="owner"
+              >
+                <option value="">All vehicle owners</option>
+                {ownerOptions.map((item) => (
+                  <option key={item.owner.id} value={item.owner.id}>
+                    {item.owner.owner_name} · {item.owner.owner_code}
                   </option>
                 ))}
               </select>
