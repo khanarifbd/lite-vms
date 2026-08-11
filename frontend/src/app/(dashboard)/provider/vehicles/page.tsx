@@ -30,7 +30,8 @@ import { getProviderVehicles } from "@/lib/provider/vehicle-server"
 
 export const dynamic = "force-dynamic"
 
-const PAGE_SIZE = 12
+const DEFAULT_PAGE_SIZE = 25
+const pageSizes = [10, 25, 50, 100] as const
 const vehicleReadRoles = [
   USER_ROLES.vtsAdmin,
   USER_ROLES.vtsOperator,
@@ -77,6 +78,7 @@ type ProviderVehiclesPageProps = {
     gps?: SearchValue
     tracking?: SearchValue
     cursor?: SearchValue
+    limit?: SearchValue
   }>
 }
 
@@ -100,10 +102,11 @@ function statusLabel(value: string) {
 
 function pageHref(
   cursor: string,
-  filters: { search: string; status: string; gps: string; tracking: string }
+  filters: { search: string; status: string; gps: string; tracking: string; limit: number }
 ) {
   const params = new URLSearchParams()
   if (cursor) params.set("cursor", cursor)
+  params.set("limit", String(filters.limit))
   if (filters.search) params.set("search", filters.search)
   if (filters.status) params.set("status", filters.status)
   if (filters.gps) params.set("gps", filters.gps)
@@ -171,12 +174,16 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
     ? requestedTracking
     : ""
   const cursor = firstValue(params.cursor) || ""
+  const requestedLimit = Number(firstValue(params.limit))
+  const limit = pageSizes.includes(requestedLimit as (typeof pageSizes)[number])
+    ? requestedLimit
+    : DEFAULT_PAGE_SIZE
 
   let vehicles: ProviderVehiclePage | null = null
   let loadError: string | null = null
   try {
     vehicles = await getProviderVehicles({
-      limit: PAGE_SIZE,
+      limit,
       search,
       status,
       gps,
@@ -204,77 +211,34 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
 
   const hasNextPage = Boolean(vehicles.next_cursor)
   const hasFilters = Boolean(search || status || (trackingUiEnabled && (gps || tracking)))
-  const filters = { search, status, gps, tracking }
+  const filters = { search, status, gps, tracking, limit }
   const canManage = userHasAnyRole(user, vehicleManageRoles)
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-3xl bg-emerald-950 px-6 py-8 text-white shadow-xl sm:px-8 lg:px-10">
-          <div className="absolute -right-16 -top-24 size-80 rounded-full border border-white/10" />
-          <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-            <div className="max-w-3xl">
-              <Badge className="border-white/15 bg-white/10 text-emerald-100 hover:bg-white/10">
-                Provider vehicle operations
-              </Badge>
-              <h1 className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">
-                Vehicle registry
-              </h1>
-              <p className="mt-3 max-w-2xl text-base leading-7 text-emerald-100/75">
-                Search compact records, open full vehicle details, review police notes, and correct
-                draft or changes-requested registrations within active owner links.
-              </p>
-            </div>
-            {canManage ? (
-              <Button asChild className="bg-white text-emerald-950 hover:bg-emerald-50">
-                <Link href="/provider/vehicles/register">
-                  <Plus /> Register vehicle
-                </Link>
-              </Button>
-            ) : null}
-          </div>
-        </section>
-
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { label: "Linked vehicles", value: vehicles.stats.total, icon: CarFront },
-            { label: "Verified vehicles", value: vehicles.stats.verified, icon: Gauge },
-            ...(trackingUiEnabled
-              ? [
-                  { label: "GPS online", value: vehicles.stats.online, icon: RadioTower },
-                  { label: "Active tracking", value: vehicles.stats.active_tracking, icon: MapPin },
-                ]
-              : []),
-          ].map(({ label, value, icon: Icon }) => (
-            <Card key={label}>
-              <CardContent className="flex items-start justify-between gap-4 p-5">
-                <div>
-                  <p className="text-sm text-muted-foreground">{label}</p>
-                  <p className="mt-3 text-3xl font-semibold">{value}</p>
-                </div>
-                <div className="flex size-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800">
-                  <Icon aria-hidden="true" className="size-5" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </section>
-
         <Card>
           <CardHeader className="border-b">
             <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
               <div>
-                <CardTitle>Provider vehicle portfolio</CardTitle>
+                <CardTitle>Vehicle portfolio</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {vehicles.total} matching vehicle record{vehicles.total === 1 ? "" : "s"} within
                   active provider-owner links.
                 </p>
               </div>
-              <Badge variant="secondary">Full details available</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">{vehicles.stats.verified} verified</Badge>
+                {canManage ? (
+                  <Button asChild size="sm">
+                    <Link href="/provider/vehicles/register"><Plus /> Register vehicle</Link>
+                  </Button>
+                ) : null}
+              </div>
             </div>
 
             <form
-              className="mt-4 grid gap-3 xl:grid-cols-[minmax(260px,1fr)_210px_auto_auto]"
+              className="mt-4 grid gap-3 xl:grid-cols-[minmax(260px,1fr)_210px_150px_auto_auto]"
               method="get"
             >
               <div className="relative">
@@ -300,6 +264,16 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                   <option key={value} value={value}>
                     {statusLabel(value)}
                   </option>
+                ))}
+              </select>
+              <select
+                aria-label="Vehicles per page"
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                defaultValue={limit}
+                name="limit"
+              >
+                {pageSizes.map((size) => (
+                  <option key={size} value={size}>{size} per page</option>
                 ))}
               </select>
               {trackingUiEnabled ? (
