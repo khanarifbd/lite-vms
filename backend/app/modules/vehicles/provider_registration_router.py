@@ -2,6 +2,7 @@ import secrets
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from io import BytesIO
+from pathlib import Path
 from urllib.parse import quote
 from typing import Annotated
 
@@ -11,7 +12,7 @@ import httpx
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
-from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -127,63 +128,147 @@ def certificate_payload(vehicle: Vehicle, *, requirements: list[str]) -> dict[st
     }
 
 
+CERTIFICATE_ASSET_DIR = Path(__file__).resolve().parents[2] / "assets" / "certificate_template"
+
+
 def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner) -> BytesIO:
-    """Render a single-page provider vehicle compliance certificate."""
+    """Render the branded, data-driven Go Max compliance certificate from the Figma template."""
     if not vehicle.certificate_number or not vehicle.certificate_issued_at or not vehicle.certificate_expires_at:
         raise ValueError("Certificate has not been issued")
 
     output = BytesIO()
     page = canvas.Canvas(output, pagesize=A4)
     width, height = A4
-    margin = 22 * mm
+    scale = width / 1362.64
 
-    page.setFillColor(colors.HexColor("#005c66"))
-    page.rect(0, height - 52 * mm, width, 52 * mm, stroke=0, fill=1)
-    page.setFillColor(colors.white)
-    page.setFont("Helvetica-Bold", 17)
-    page.drawString(margin, height - 24 * mm, "Vehicle Compliance Certificate")
-    page.setFont("Helvetica", 9)
-    page.drawString(margin, height - 32 * mm, "VTS Provider Gateway - National Integration Gateway")
-    page.setFillColor(colors.HexColor("#bdeff2"))
-    page.setFont("Helvetica-Bold", 9)
-    page.drawRightString(width - margin, height - 31 * mm, vehicle.certificate_number)
+    def x(value: float) -> float:
+        return value * scale
 
-    page.setFillColor(colors.HexColor("#18222a"))
-    page.setFont("Helvetica-Bold", 13)
-    page.drawString(margin, height - 72 * mm, vehicle.registration_number_display or vehicle.registration_number)
-    page.setFont("Helvetica", 9)
-    page.setFillColor(colors.HexColor("#5e7078"))
-    page.drawString(margin, height - 80 * mm, "This certificate confirms that the listed vehicle documents were current at issue.")
+    def y(value: float) -> float:
+        return height - value * scale
 
-    rows = [
-        ("Vehicle owner", owner.name),
-        ("Owner reference", owner.owner_code),
-        ("Registration number", vehicle.registration_number),
-        ("Certificate issued", vehicle.certificate_issued_at.strftime("%d %b %Y")),
-        ("Certificate expires", vehicle.certificate_expires_at.strftime("%d %b %Y")),
+    def date_text(value: date | None) -> str:
+        return value.strftime("%d %B %Y") if value else "Not recorded"
+
+    def draw_logo(name: str, left: float, top: float, logo_width: float, logo_height: float) -> None:
+        path = CERTIFICATE_ASSET_DIR / name
+        if path.exists():
+            page.drawImage(ImageReader(path), x(left), y(top + logo_height), x(logo_width), x(logo_height), mask="auto")
+
+    def draw_card(left: float, top: float, card_width: float, title: str, rows: list[tuple[str, str, colors.Color]]) -> None:
+        card_height = 404
+        page.setStrokeColor(colors.Color(225 / 255, 0, 0, alpha=0.30))
+        page.setLineWidth(0.75)
+        page.roundRect(x(left), y(top + card_height), x(card_width), x(card_height), x(16), stroke=1, fill=0)
+        page.setFillColor(colors.black)
+        page.setFont("Helvetica-Bold", x(28))
+        page.drawString(x(left + 20), y(top + 43), title)
+        page.setStrokeColor(colors.HexColor("#d9d9d9"))
+        page.line(x(left + 20), y(top + 62), x(left + card_width - 20), y(top + 62))
+        row_top = top + 78
+        for index, (label, value, value_color) in enumerate(rows):
+            row_y = row_top + index * 55
+            page.setFillColor(colors.white)
+            page.rect(x(left + 20), y(row_y + 50), x(card_width - 40), x(50), stroke=0, fill=1)
+            page.setFillColor(colors.HexColor("#505958"))
+            page.setFont("Helvetica", x(16))
+            page.drawString(x(left + 44), y(row_y + 31), label)
+            page.setFillColor(value_color)
+            page.setFont("Helvetica-Bold", x(19))
+            page.drawRightString(x(left + card_width - 44), y(row_y + 31), value)
+
+    # Figma certificate frame background and printed border.
+    page.setFillColor(colors.HexColor("#fdf9f5"))
+    page.rect(0, 0, width, height, stroke=0, fill=1)
+    page.setStrokeColor(colors.Color(225 / 255, 0, 0, alpha=0.16))
+    page.setLineWidth(x(5))
+    page.line(x(48), y(60), x(48), y(1860))
+    page.line(width - x(48), y(60), width - x(48), y(1860))
+
+    draw_logo("gomax_tracker.png", 140.73, 60, 253.968, 80)
+    draw_logo("auto_generation.png", 970, 60, 252.379, 80)
+
+    page.setFillColor(colors.HexColor("#231f20"))
+    page.setFont("Helvetica", x(18))
+    page.drawCentredString(width / 2, y(205), "AUTO GENERATION LIMITED.")
+    page.setFont("Helvetica-Bold", x(24))
+    page.drawCentredString(width / 2, y(242), "Go Max Tracker")
+    page.setFont("Times-Roman", x(55))
+    page.drawCentredString(width / 2, y(315), "GPS TRACKER COMPLIANCE")
+    page.drawCentredString(width / 2, y(378), "CERTIFICATE")
+
+    page.setFillColor(colors.HexColor("#f0e3d7"))
+    page.setStrokeColor(colors.HexColor("#e1b68d"))
+    page.roundRect(width / 2 - x(255), y(452), x(510), x(52), x(12), stroke=1, fill=1)
+    page.setFillColor(colors.Color(35 / 255, 31 / 255, 32 / 255, alpha=0.70))
+    page.setFont("Helvetica-Bold", x(18))
+    page.drawCentredString(width / 2, y(422), f"GPS Certificate No: {vehicle.certificate_number}")
+
+    page.setFillColor(colors.Color(35 / 255, 31 / 255, 32 / 255, alpha=0.72))
+    page.setFont("Helvetica", x(20))
+    statement = [
+        "This is to clarify that the vehicle described below has been equipped with a genuine, active and",
+        "fully operational GPS tracking device installed by Go Max Tracker, a product of Auto Generation Limited,",
+        "a BTRC Licensed Vehicle Tracking Service (VTS) Provider.",
+        "",
+        "The certificate confirms that the installed GPS tracking device is functional and has been",
+        "installed in accordance with applicable GPS tracking requirements and relevant directives issued",
+        "by the Bangladesh Road Transport Authority (BRTA), where applicable.",
     ]
-    top = height - 102 * mm
-    row_height = 13 * mm
-    for index, (label, value) in enumerate(rows):
-        y = top - index * row_height
-        page.setFillColor(colors.HexColor("#f2f7f8") if index % 2 == 0 else colors.white)
-        page.roundRect(margin, y - 8 * mm, width - 2 * margin, 11 * mm, 2 * mm, stroke=0, fill=1)
-        page.setFillColor(colors.HexColor("#5e7078"))
-        page.setFont("Helvetica", 8)
-        page.drawString(margin + 4 * mm, y - 1 * mm, label.upper())
-        page.setFillColor(colors.HexColor("#18222a"))
-        page.setFont("Helvetica-Bold", 10)
-        page.drawRightString(width - margin - 4 * mm, y - 1 * mm, str(value or "—"))
+    for index, line in enumerate(statement):
+        page.drawCentredString(width / 2, y(560 + index * 30), line)
 
-    page.setStrokeColor(colors.HexColor("#99dfe5"))
-    page.line(margin, 61 * mm, width - margin, 61 * mm)
-    page.setFillColor(colors.HexColor("#5e7078"))
-    page.setFont("Helvetica", 8)
-    page.drawString(margin, 51 * mm, "Issued electronically by the VTS Provider Gateway.")
-    page.drawString(margin, 45 * mm, "Certificate validity is subject to the expiry date and current vehicle-document status.")
-    page.setFont("Helvetica-Bold", 8)
-    page.setFillColor(colors.HexColor("#005c66"))
-    page.drawRightString(width - margin, 45 * mm, "DIGITALLY GENERATED")
+    remaining_days = max((vehicle.certificate_expires_at - date.today()).days, 0)
+    gps_connected = vehicle.last_received_at is not None
+    gps_text = "Connected" if gps_connected else "Not configured"
+    gps_color = colors.HexColor("#008200") if gps_connected else colors.HexColor("#505958")
+    vehicle_rows = [
+        ("Owner Name:", owner.name or "Not recorded", colors.HexColor("#231f20")),
+        ("Registration No.", vehicle.registration_number_display or vehicle.registration_number, colors.HexColor("#231f20")),
+        ("Vehicle Type", vehicle.vehicle_type or "Not recorded", colors.HexColor("#231f20")),
+        ("Chassis No.", vehicle.chassis_number or "Not recorded", colors.HexColor("#231f20")),
+        ("GPS Status", gps_text, gps_color),
+    ]
+    validity_rows = [
+        ("Date of Issue", date_text(vehicle.certificate_issued_at), colors.HexColor("#231f20")),
+        ("Valid Until", date_text(vehicle.certificate_expires_at), colors.HexColor("#231f20")),
+        ("Remaining Days", str(remaining_days), colors.HexColor("#231f20")),
+        ("Certificate generated", date_text(vehicle.certificate_issued_at), colors.HexColor("#231f20")),
+        ("Current Status", "Active", colors.HexColor("#008200")),
+    ]
+    draw_card(101, 878, 560, "VEHICLE PARTICULARS", vehicle_rows)
+    draw_card(701, 878, 560, "VALIDITY INFORMATION", validity_rows)
+
+    page.setFillColor(colors.white)
+    page.setStrokeColor(colors.Color(225 / 255, 0, 0, alpha=0.30))
+    page.roundRect(x(101), y(1425), x(1160), x(152), x(16), stroke=1, fill=1)
+    page.setFillColor(colors.HexColor("#231f20"))
+    page.setFont("Helvetica-Bold", x(22))
+    page.drawString(x(195), y(1355), "BTRC LICENSED VEHICLE TRACKING SERVICE PROVIDER")
+    page.setFillColor(colors.Color(35 / 255, 31 / 255, 32 / 255, alpha=0.70))
+    page.setFont("Helvetica", x(18))
+    page.drawString(x(195), y(1395), "BTRC VTS License No: 14.32.00000.007.58.055.18.44")
+
+    page.setFillColor(colors.HexColor("#231f20"))
+    page.setFont("Helvetica-Bold", x(22))
+    page.drawString(x(101), y(1538), "IMPORTANT NOTICE")
+    page.drawString(x(543), y(1538), "CONTACT INFO")
+    page.setFont("Helvetica", x(16))
+    page.drawString(x(101), y(1572), "• This certificate is valid only while the")
+    page.drawString(x(114), y(1596), "GPS subscription remains active.")
+    page.drawString(x(101), y(1630), "• Misuse of this certificate is an offence")
+    page.drawString(x(114), y(1654), "under Bangladesh ICT Act, 2006.")
+    contact = ["Call Center (24/7): +880 9666 766 766", "Email: support@gomaxtracker.com", "Website: www.gomaxtracker.com", "Office: House# 646 (4th floor), Road #9, Mirpur DOHS, Dhaka-1216"]
+    for index, line in enumerate(contact):
+        page.drawString(x(543), y(1572 + index * 28), line)
+    draw_logo("brta_emblem.png", 1090, 1516, 118, 118)
+    page.setFont("Helvetica-Bold", x(18))
+    page.drawCentredString(x(1148), y(1665), "BRTA APPROVED")
+
+    page.setFillColor(colors.Color(35 / 255, 31 / 255, 32 / 255, alpha=0.70))
+    page.setFont("Helvetica-Oblique", x(16))
+    page.drawCentredString(width / 2, y(1848), "This is a system generated certificate and requires no manual signature.")
+    page.drawCentredString(width / 2, y(1872), "Powered by Auto Generation Limited.")
     page.showPage()
     page.save()
     output.seek(0)
