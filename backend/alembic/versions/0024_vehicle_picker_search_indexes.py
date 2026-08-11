@@ -13,6 +13,8 @@ depends_on = None
 
 
 def upgrade() -> None:
+    if op.get_bind().dialect.name != "postgresql":
+        return
     op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
 
     op.execute("CREATE INDEX IF NOT EXISTS ix_vehicle_reg_lower_pattern ON vehicles (lower(registration_number) text_pattern_ops)")

@@ -14,23 +14,22 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("telemetry_sources", sa.Column("api_key_prefix", sa.String(length=32), nullable=True))
-    op.add_column("telemetry_sources", sa.Column("api_key_hash", sa.String(length=64), nullable=True))
-    op.add_column("telemetry_sources", sa.Column("api_key_last_four", sa.String(length=4), nullable=True))
-    op.add_column("telemetry_sources", sa.Column("api_key_created_at", sa.DateTime(timezone=True), nullable=True))
-    op.add_column("telemetry_sources", sa.Column("api_key_rotated_at", sa.DateTime(timezone=True), nullable=True))
-    op.add_column("telemetry_sources", sa.Column("api_key_revoked_at", sa.DateTime(timezone=True), nullable=True))
-    op.add_column("telemetry_sources", sa.Column("api_key_created_by_id", sa.BigInteger(), nullable=True))
-    op.add_column("telemetry_sources", sa.Column("last_authenticated_at", sa.DateTime(timezone=True), nullable=True))
-
-    op.create_foreign_key(
-        "fk_telemetry_sources_api_key_created_by_id_users",
-        "telemetry_sources",
-        "users",
-        ["api_key_created_by_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
+    with op.batch_alter_table("telemetry_sources") as batch_op:
+        batch_op.add_column(sa.Column("api_key_prefix", sa.String(length=32), nullable=True))
+        batch_op.add_column(sa.Column("api_key_hash", sa.String(length=64), nullable=True))
+        batch_op.add_column(sa.Column("api_key_last_four", sa.String(length=4), nullable=True))
+        batch_op.add_column(sa.Column("api_key_created_at", sa.DateTime(timezone=True), nullable=True))
+        batch_op.add_column(sa.Column("api_key_rotated_at", sa.DateTime(timezone=True), nullable=True))
+        batch_op.add_column(sa.Column("api_key_revoked_at", sa.DateTime(timezone=True), nullable=True))
+        batch_op.add_column(sa.Column("api_key_created_by_id", sa.BigInteger(), nullable=True))
+        batch_op.add_column(sa.Column("last_authenticated_at", sa.DateTime(timezone=True), nullable=True))
+        batch_op.create_foreign_key(
+            "fk_telemetry_sources_api_key_created_by_id_users",
+            "users",
+            ["api_key_created_by_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
     op.create_index(
         "ix_telemetry_sources_api_key_prefix",
         "telemetry_sources",

@@ -15,13 +15,30 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "speed_rules",
-        sa.Column("vehicle_scope", sa.String(length=30), nullable=False, server_default="all"),
-    )
-    op.add_column("speed_rules", sa.Column("vehicle_ids", sa.JSON(), nullable=True))
-    op.create_index("ix_speed_rules_vehicle_scope", "speed_rules", ["vehicle_scope"], unique=False)
-    op.alter_column("speed_rules", "vehicle_scope", server_default=None)
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    column_names = {column["name"] for column in inspector.get_columns("speed_rules")}
+    index_names = {index["name"] for index in inspector.get_indexes("speed_rules")}
+
+    if "vehicle_scope" not in column_names:
+        op.add_column(
+            "speed_rules",
+            sa.Column("vehicle_scope", sa.String(length=30), nullable=False, server_default="all"),
+        )
+    if "vehicle_ids" not in column_names:
+        op.add_column("speed_rules", sa.Column("vehicle_ids", sa.JSON(), nullable=True))
+    if "ix_speed_rules_vehicle_scope" not in index_names:
+        op.create_index("ix_speed_rules_vehicle_scope", "speed_rules", ["vehicle_scope"], unique=False)
+
+    if bind.dialect.name == "sqlite":
+        with op.batch_alter_table("speed_rules") as batch_op:
+            batch_op.alter_column(
+                "vehicle_scope",
+                existing_type=sa.String(length=30),
+                server_default=None,
+            )
+    else:
+        op.alter_column("speed_rules", "vehicle_scope", server_default=None)
 
 
 def downgrade() -> None:

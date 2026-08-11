@@ -33,28 +33,29 @@ def upgrade() -> None:
     op.create_index("ix_enforcement_geofences_enabled", "enforcement_geofences", ["enabled"], unique=False)
     op.create_index("ix_enforcement_geofences_created_by_user_id", "enforcement_geofences", ["created_by_user_id"], unique=False)
 
-    op.add_column("speed_rules", sa.Column("geofence_id", sa.Uuid(), nullable=True))
-    op.create_foreign_key(
-        "fk_speed_rules_geofence_id_enforcement_geofences",
-        "speed_rules",
-        "enforcement_geofences",
-        ["geofence_id"],
-        ["id"],
-        ondelete="RESTRICT",
-    )
+    with op.batch_alter_table("speed_rules") as batch_op:
+        batch_op.add_column(sa.Column("geofence_id", sa.Uuid(), nullable=True))
+        batch_op.create_foreign_key(
+            "fk_speed_rules_geofence_id_enforcement_geofences",
+            "enforcement_geofences",
+            ["geofence_id"],
+            ["id"],
+            ondelete="RESTRICT",
+        )
     op.create_index("ix_speed_rules_geofence_id", "speed_rules", ["geofence_id"], unique=False)
 
     # Reuse and extend the existing violation_candidates table so historical
     # detection evidence and review records remain intact.
-    op.add_column("violation_candidates", sa.Column("rule_id", sa.Uuid(), nullable=True))
-    op.add_column("violation_candidates", sa.Column("policy_id", sa.Uuid(), nullable=True))
-    op.add_column("violation_candidates", sa.Column("review_organization_id", sa.BigInteger(), nullable=True))
-    op.add_column("violation_candidates", sa.Column("evidence", sa.JSON(), nullable=True))
-    op.add_column("violation_candidates", sa.Column("reviewed_by_user_id", sa.BigInteger(), nullable=True))
-    op.create_foreign_key("fk_violation_candidates_rule_id_speed_rules", "violation_candidates", "speed_rules", ["rule_id"], ["id"], ondelete="SET NULL")
-    op.create_foreign_key("fk_violation_candidates_policy_id_enforcement_policies", "violation_candidates", "enforcement_policies", ["policy_id"], ["id"], ondelete="SET NULL")
-    op.create_foreign_key("fk_violation_candidates_review_org_organizations", "violation_candidates", "organizations", ["review_organization_id"], ["id"], ondelete="SET NULL")
-    op.create_foreign_key("fk_violation_candidates_reviewed_user_users", "violation_candidates", "users", ["reviewed_by_user_id"], ["id"], ondelete="SET NULL")
+    with op.batch_alter_table("violation_candidates") as batch_op:
+        batch_op.add_column(sa.Column("rule_id", sa.Uuid(), nullable=True))
+        batch_op.add_column(sa.Column("policy_id", sa.Uuid(), nullable=True))
+        batch_op.add_column(sa.Column("review_organization_id", sa.BigInteger(), nullable=True))
+        batch_op.add_column(sa.Column("evidence", sa.JSON(), nullable=True))
+        batch_op.add_column(sa.Column("reviewed_by_user_id", sa.BigInteger(), nullable=True))
+        batch_op.create_foreign_key("fk_violation_candidates_rule_id_speed_rules", "speed_rules", ["rule_id"], ["id"], ondelete="SET NULL")
+        batch_op.create_foreign_key("fk_violation_candidates_policy_id_enforcement_policies", "enforcement_policies", ["policy_id"], ["id"], ondelete="SET NULL")
+        batch_op.create_foreign_key("fk_violation_candidates_review_org_organizations", "organizations", ["review_organization_id"], ["id"], ondelete="SET NULL")
+        batch_op.create_foreign_key("fk_violation_candidates_reviewed_user_users", "users", ["reviewed_by_user_id"], ["id"], ondelete="SET NULL")
     for column in ["rule_id", "policy_id", "review_organization_id", "reviewed_by_user_id"]:
         op.create_index(f"ix_violation_candidates_{column}", "violation_candidates", [column], unique=False)
 

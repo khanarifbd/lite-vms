@@ -14,22 +14,20 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "telemetry_points",
-        sa.Column("enforcement_rule_id", sa.Uuid(), nullable=True),
-    )
-    op.add_column(
-        "telemetry_points",
-        sa.Column("enforcement_threshold_kph", sa.Float(), nullable=True),
-    )
-    op.create_foreign_key(
-        "fk_telemetry_points_enforcement_rule",
-        "telemetry_points",
-        "speed_rules",
-        ["enforcement_rule_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
+    with op.batch_alter_table("telemetry_points") as batch_op:
+        batch_op.add_column(
+            sa.Column("enforcement_rule_id", sa.Uuid(), nullable=True)
+        )
+        batch_op.add_column(
+            sa.Column("enforcement_threshold_kph", sa.Float(), nullable=True)
+        )
+        batch_op.create_foreign_key(
+            "fk_telemetry_points_enforcement_rule",
+            "speed_rules",
+            ["enforcement_rule_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
     op.create_index(
         "ix_telemetry_points_enforcement_rule_id",
         "telemetry_points",
