@@ -77,10 +77,10 @@ async def import_gomax_vehicles(
             login = await client.post(f"{base_url}/login_with_username/{quote(username, safe='')}")
             login.raise_for_status()
             customer = login.json()
-            customer_id = str(customer.get("id") or "").strip()
-            if not customer_id:
-                raise ValueError("Go Max did not return a customer ID")
-            devices = await client.get(f"{base_url}/device_list/{quote(customer_id, safe='')}")
+            gomax_owner_id = str(customer.get("id") or "").strip()
+            if not gomax_owner_id:
+                raise ValueError("Go Max did not return an owner ID")
+            devices = await client.get(f"{base_url}/device_list/{quote(gomax_owner_id, safe='')}")
             devices.raise_for_status()
             projects = devices.json()
     except (httpx.HTTPError, ValueError) as exc:
@@ -120,7 +120,7 @@ async def import_gomax_vehicles(
         )
         imported += 1
     await session.commit()
-    return {"message": "Go Max vehicles imported", "customer_id": customer_id, "imported": imported, "skipped": skipped}
+    return {"message": "Go Max vehicles imported", "gomax_owner_id": gomax_owner_id, "imported": imported, "skipped": skipped}
 
 
 async def require_approved_provider(session: AsyncSession, actor: User):
