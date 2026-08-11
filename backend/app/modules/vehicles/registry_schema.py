@@ -43,6 +43,7 @@ class VehicleRegistryItem(BaseModel):
     certificate_number: str | None = None
     certificate_issued_at: date | None = None
     certificate_expires_at: date | None = None
+    vts_installation_date: date | None = None
     created_at: datetime
     updated_at: datetime
 

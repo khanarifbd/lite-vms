@@ -27,7 +27,7 @@ export default async function OwnerDriversPage() {
   try {
     ;[links, vehicles, assignments] = await Promise.all([
       getOwnerDriverLinks(),
-      getMyVehicles({ page: 1, limit: 100 }),
+      getMyVehicles({ limit: 100 }),
       getOwnerDriverAssignments(),
     ])
   } catch (error) {

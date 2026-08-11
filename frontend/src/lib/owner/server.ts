@@ -15,12 +15,11 @@ import type { VehicleDetails } from "@/features/vehicles/types"
 import { authenticatedBackendFetch } from "@/lib/api/server"
 
 export type OwnerVehicleRegistryQuery = {
-  page?: number
   limit?: number
   search?: string
   status?: string
-  gpsOnline?: boolean
-  trackingStatus?: string
+  cursor?: string
+  documentStatus?: "required" | "expired" | "expiring"
 }
 
 export async function getMyOwnerApplication() {
@@ -57,17 +56,13 @@ export async function getOwnerProviderConnectionWorkspace() {
 }
 
 export async function getMyVehicles(query: OwnerVehicleRegistryQuery = {}) {
-  const page = Math.max(1, query.page || 1)
   const limit = Math.min(100, Math.max(1, query.limit || 24))
-  const params = new URLSearchParams({
-    offset: String((page - 1) * limit),
-    limit: String(limit),
-  })
+  const params = new URLSearchParams({ limit: String(limit) })
 
   if (query.search?.trim()) params.set("search", query.search.trim())
   if (query.status?.trim()) params.set("status", query.status.trim())
-  if (query.gpsOnline !== undefined) params.set("gps_online", String(query.gpsOnline))
-  if (query.trackingStatus?.trim()) params.set("tracking_status", query.trackingStatus.trim())
+  if (query.cursor?.trim()) params.set("cursor", query.cursor.trim())
+  if (query.documentStatus) params.set("document_status", query.documentStatus)
 
   return authenticatedBackendFetch<OwnerVehiclePage>(
     `/vehicles/registry?${params.toString()}`

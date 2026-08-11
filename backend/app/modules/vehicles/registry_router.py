@@ -430,6 +430,7 @@ async def vehicle_registry(
                 Vehicle.certificate_number,
                 Vehicle.certificate_issued_at,
                 Vehicle.certificate_expires_at,
+                Vehicle.vts_installation_date,
                 Vehicle.created_at,
                 Vehicle.updated_at,
             )
@@ -483,6 +484,7 @@ async def vehicle_registry(
             certificate_number=row.certificate_number,
             certificate_issued_at=row.certificate_issued_at,
             certificate_expires_at=row.certificate_expires_at,
+            vts_installation_date=row.vts_installation_date,
             created_at=row.created_at,
             updated_at=row.updated_at,
         ))

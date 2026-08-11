@@ -58,6 +58,7 @@ export type OwnerVehicle = {
   certificate_number: string | null
   certificate_issued_at: string | null
   certificate_expires_at: string | null
+  vts_installation_date: string | null
   created_at: string
   updated_at: string
 }
