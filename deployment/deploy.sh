@@ -30,6 +30,7 @@ ENABLE_TELEMETRY_CONSUMER="${ENABLE_TELEMETRY_CONSUMER:-false}"
 SERVER_NAME="${SERVER_NAME:-_}"
 CLIENT_MAX_BODY_SIZE="${CLIENT_MAX_BODY_SIZE:-25m}"
 DISABLE_DEFAULT_NGINX_SITE="${DISABLE_DEFAULT_NGINX_SITE:-true}"
+TLS_ENABLED="${TLS_ENABLED:-false}"
 PNPM_BIN="${PNPM_BIN:-pnpm}"
 HEALTHCHECK_RETRIES="${HEALTHCHECK_RETRIES:-30}"
 HEALTHCHECK_DELAY_SECONDS="${HEALTHCHECK_DELAY_SECONDS:-2}"
@@ -120,12 +121,19 @@ export API_HOST API_PORT WEB_HOST WEB_PORT UVICORN_WORKERS PNPM_BIN SERVER_NAME 
 render_template "${SCRIPT_DIR}/systemd/bnvp-api.service.template" "${TMP_API}"
 render_template "${SCRIPT_DIR}/systemd/bnvp-web.service.template" "${TMP_WEB}"
 render_template "${SCRIPT_DIR}/systemd/bnvp-telemetry-consumer.service.template" "${TMP_CONSUMER}"
-render_template "${SCRIPT_DIR}/nginx/bnvp.conf.template" "${TMP_NGINX}"
+NGINX_TEMPLATE="${SCRIPT_DIR}/nginx/bnvp.conf.template"
+if is_true "${TLS_ENABLED}"; then
+    [[ -f "/etc/letsencrypt/live/${SERVER_NAME}/fullchain.pem" ]] || die "TLS_ENABLED=true but no certificate exists for ${SERVER_NAME}"
+    [[ -f "/etc/letsencrypt/live/${SERVER_NAME}/privkey.pem" ]] || die "TLS_ENABLED=true but no private key exists for ${SERVER_NAME}"
+    NGINX_TEMPLATE="${SCRIPT_DIR}/nginx/bnvp-https.conf.template"
+fi
+render_template "${NGINX_TEMPLATE}" "${TMP_NGINX}"
 
 install -m 0644 "${TMP_API}" "/etc/systemd/system/${API_SERVICE_NAME}.service"
 install -m 0644 "${TMP_WEB}" "/etc/systemd/system/${WEB_SERVICE_NAME}.service"
 install -m 0644 "${TMP_CONSUMER}" "/etc/systemd/system/${CONSUMER_SERVICE_NAME}.service"
 mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
+mkdir -p /var/lib/bnvp-certbot
 install -m 0644 "${TMP_NGINX}" "/etc/nginx/sites-available/${NGINX_SITE_NAME}.conf"
 ln -sfn "/etc/nginx/sites-available/${NGINX_SITE_NAME}.conf" "/etc/nginx/sites-enabled/${NGINX_SITE_NAME}.conf"
 if is_true "${DISABLE_DEFAULT_NGINX_SITE}"; then rm -f /etc/nginx/sites-enabled/default; fi
