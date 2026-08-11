@@ -85,3 +85,15 @@ class PublicVehicleQRVerification(BaseModel):
     current_speed_kph: float
     current_driver: PublicQRDriverSummary | None
     documents: list[PublicQRDocumentSummary]
+
+
+class PublicCertificateVerification(BaseModel):
+    valid: bool
+    certificate_number: str
+    issued_at: date | None
+    expires_at: date | None
+    vts_installation_date: date | None
+    owner_name: str
+    registration_number: str
+    vehicle_type: str
+    chassis_number: str

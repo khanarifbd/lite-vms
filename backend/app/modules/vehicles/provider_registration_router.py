@@ -9,6 +9,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 import httpx
+import qrcode
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
@@ -205,6 +206,13 @@ def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner) -> BytesIO:
     page.setFillColor(colors.Color(35 / 255, 31 / 255, 32 / 255, alpha=0.70))
     page.setFont("Helvetica-Bold", x(18))
     page.drawCentredString(width / 2, y(422), f"GPS Certificate No: {vehicle.certificate_number}")
+    verification_url = f"{settings.public_web_url.rstrip('/')}/verify/certificate/{quote(vehicle.certificate_number, safe='')}"
+    qr_output = BytesIO()
+    qrcode.make(verification_url).save(qr_output, format="PNG")
+    qr_output.seek(0)
+    page.drawImage(ImageReader(qr_output), x(1145), y(410 + 105), x(105), x(105), mask="auto")
+    page.setFont("Helvetica", x(11))
+    page.drawCentredString(x(1197), y(530), "SCAN TO VERIFY")
 
     page.setFillColor(colors.Color(35 / 255, 31 / 255, 32 / 255, alpha=0.72))
     page.setFont("Helvetica", x(20))

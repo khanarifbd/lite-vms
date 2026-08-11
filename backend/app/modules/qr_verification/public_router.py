@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -16,12 +16,38 @@ from app.modules.qr_verification.model import VehicleQRToken
 from app.modules.qr_verification.schema import (
     PublicQRDocumentSummary,
     PublicQRDriverSummary,
+    PublicCertificateVerification,
     PublicVehicleQRVerification,
 )
 from app.modules.tracking.model import VehicleDeviceAssignment
 from app.modules.vehicles.model import Vehicle
 
 router = APIRouter(prefix="/public/qr", tags=["Public QR verification"])
+
+
+@router.get("/certificates/{certificate_number}", response_model=PublicCertificateVerification)
+async def verify_public_certificate(
+    certificate_number: str,
+    session: AsyncSession = Depends(get_session),
+) -> PublicCertificateVerification:
+    vehicle = await session.scalar(
+        select(Vehicle).where(Vehicle.certificate_number == certificate_number)
+    )
+    if vehicle is None or not vehicle.certificate_number:
+        raise HTTPException(status_code=404, detail="Certificate was not found")
+    owner = await session.get(VehicleOwner, vehicle.owner_id)
+    expires_at = vehicle.certificate_expires_at
+    return PublicCertificateVerification(
+        valid=bool(expires_at and expires_at >= date.today()),
+        certificate_number=vehicle.certificate_number,
+        issued_at=vehicle.certificate_issued_at,
+        expires_at=expires_at,
+        vts_installation_date=vehicle.vts_installation_date,
+        owner_name=owner.name if owner else "Owner not recorded",
+        registration_number=vehicle.registration_number_display or vehicle.registration_number,
+        vehicle_type=vehicle.vehicle_type,
+        chassis_number=vehicle.chassis_number,
+    )
 
 
 @router.get("/verify/{token}", response_model=PublicVehicleQRVerification)
