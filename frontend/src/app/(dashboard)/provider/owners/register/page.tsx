@@ -14,10 +14,10 @@ export default function ProviderOwnerRegisterPage() {
               Mobile-first owner onboarding
             </Badge>
             <h1 className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Register or link a vehicle owner
+              Register a vehicle owner
             </h1>
             <p className="mt-3 max-w-2xl text-base leading-7 text-emerald-100/75">
-              Search by mobile number, create the owner profile when it does not exist, and use that same mobile number as the default Primary login identifier.
+              Search by mobile number, create the owner profile when it does not exist, and automatically link the owner to your company. The same mobile number becomes the default Primary login identifier.
             </p>
           </div>
         </section>

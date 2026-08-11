@@ -75,7 +75,7 @@ export function ProviderOwnerMobileRegistrationForm() {
       setLookup(result)
       setSuccess(
         result.exists
-          ? `${result.owner_name || "Owner"} already exists. Submitting will create or restore the provider connection only.`
+          ? `${result.owner_name || "Owner"} already exists. Submitting will automatically activate this company's owner link.`
           : "No owner exists with this mobile number. Complete the registration below."
       )
     } catch (cause) {
@@ -255,7 +255,7 @@ export function ProviderOwnerMobileRegistrationForm() {
         <div className="flex flex-wrap justify-between gap-3">
           <Button asChild variant="outline"><Link href="/provider/owners"><ArrowLeft /> Back to owners</Link></Button>
           <Button type="submit" disabled={submitting || !mobile.trim()} className="bg-emerald-800 text-white hover:bg-emerald-900">
-            {submitting ? <Loader2 className="animate-spin" /> : <ShieldCheck />} Register or link owner
+            {submitting ? <Loader2 className="animate-spin" /> : <ShieldCheck />} Register and link owner
           </Button>
         </div>
       </form>

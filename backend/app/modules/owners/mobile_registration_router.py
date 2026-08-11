@@ -28,7 +28,7 @@ from app.modules.auth.schema import normalize_mobile
 from app.modules.auth.security import hash_password
 from app.modules.auth.service import get_identifier, mask_email, mask_mobile, mask_username
 from app.modules.iam.service import create_membership, create_tenant_and_root_organization, get_roles_by_codes
-from app.modules.owners.enums import OwnerClaimStatus, OwnerProviderLinkStatus, OwnerProviderRequestSource
+from app.modules.owners.enums import OwnerClaimStatus, OwnerProviderLinkStatus
 from app.modules.owners.mobile_registration_schema import (
     MobileOwnerLookupRequest,
     MobileOwnerLookupResponse,
@@ -39,7 +39,7 @@ from app.modules.owners.model import VehicleOwner
 from app.modules.owners.service import (
     build_link_read,
     build_owner_read,
-    create_or_reopen_provider_owner_link,
+    create_or_activate_provider_owner_link,
     generate_owner_application_number,
     generate_owner_code,
     get_provider_owner_link,
@@ -231,7 +231,7 @@ async def lookup_owner_by_mobile(
                 OwnerProviderLinkStatus.PENDING_OWNER_APPROVAL,
                 OwnerProviderLinkStatus.PENDING_PROVIDER_APPROVAL,
             }
-            else "request_owner_link"
+            else "auto_link_on_submit"
         ),
     )
 
@@ -325,11 +325,10 @@ async def provider_mobile_register_owner(
                 detail="This mobile number is registered under a different owner type",
             )
 
-        link, _ = await create_or_reopen_provider_owner_link(
+        link, _ = await create_or_activate_provider_owner_link(
             session,
             provider_id=provider.id,
             owner_id=owner.id,
-            requested_by=OwnerProviderRequestSource.PROVIDER,
             requested_by_user_id=actor.id,
         )
         await write_audit_log(
@@ -339,7 +338,7 @@ async def provider_mobile_register_owner(
             action=(
                 "vehicle_owner.mobile_registered_by_provider"
                 if not already_registered
-                else "vehicle_owner.mobile_link_requested"
+                else "vehicle_owner.mobile_link_activated_by_provider"
             ),
             resource_type="vehicle_owner",
             resource_public_id=owner.id,
@@ -350,6 +349,7 @@ async def provider_mobile_register_owner(
                 "mobile_primary_login": True,
                 "email_added": bool(payload.email),
                 "username_added": bool(payload.login_username),
+                "provider_link_status": OwnerProviderLinkStatus.ACTIVE.value,
             },
         )
         await session.commit()
@@ -371,8 +371,8 @@ async def provider_mobile_register_owner(
         username_added=bool(payload.login_username and not already_registered),
         must_change_password=not already_registered,
         message=(
-            "Existing owner found; provider link request created"
+            "Existing owner found and linked to this provider"
             if already_registered
-            else "Owner registered with mobile as the primary login identifier"
+            else "Owner registered and linked to this provider"
         ),
     )

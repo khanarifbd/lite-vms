@@ -209,6 +209,52 @@ async def create_or_reopen_provider_owner_link(
     return link, True
 
 
+async def create_or_activate_provider_owner_link(
+    session: AsyncSession,
+    *,
+    provider_id: uuid.UUID,
+    owner_id: uuid.UUID,
+    requested_by_user_id: int,
+) -> tuple[VTSProviderOwnerLink, bool]:
+    """Create an active provider-owner link for provider-managed onboarding.
+
+    The regular connection-request workflow remains available for owner-initiated
+    and manual links. A provider that registers an owner from its own workspace
+    is explicitly authorized to manage that owner immediately.
+    """
+    link = await get_provider_owner_link(
+        session, provider_id=provider_id, owner_id=owner_id
+    )
+    if link is not None and link.status == OwnerProviderLinkStatus.ACTIVE:
+        return link, False
+
+    now = datetime.now(UTC)
+    if link is None:
+        link = VTSProviderOwnerLink(
+            provider_id=provider_id,
+            owner_id=owner_id,
+            status=OwnerProviderLinkStatus.ACTIVE,
+            requested_by=OwnerProviderRequestSource.PROVIDER,
+            requested_by_user_id=requested_by_user_id,
+            requested_at=now,
+            responded_by_user_id=requested_by_user_id,
+            responded_at=now,
+        )
+        session.add(link)
+    else:
+        link.status = OwnerProviderLinkStatus.ACTIVE
+        link.requested_by = OwnerProviderRequestSource.PROVIDER
+        link.requested_by_user_id = requested_by_user_id
+        link.requested_at = now
+        link.responded_by_user_id = requested_by_user_id
+        link.responded_at = now
+        link.ended_by_user_id = None
+        link.ended_at = None
+        link.reason = None
+    await session.flush()
+    return link, True
+
+
 async def replace_owner_documents(
     session: AsyncSession,
     *,
