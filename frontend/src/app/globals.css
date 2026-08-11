@@ -41,21 +41,22 @@
   --color-card: var(--card);
 
   /*
-   * The existing dashboard uses Tailwind emerald utilities in a number of
-   * shared shells and feature components. Remapping that palette here applies
-   * the new national platform brand globally without page-by-page overrides.
+   * Shared shells and feature components use Tailwind emerald utilities as
+   * the application brand scale. A restrained burgundy-red scale keeps the
+   * logo color prominent without turning the whole interface bright red.
+   * Cyan utilities remain available as a calm supporting accent.
    */
-  --color-emerald-50: #ecfafc;
-  --color-emerald-100: #d4f4f7;
-  --color-emerald-200: #a7e7ee;
-  --color-emerald-300: #6bd4e0;
-  --color-emerald-400: #2dc2d2;
-  --color-emerald-500: #01adc1;
-  --color-emerald-600: #00a4b8;
-  --color-emerald-700: #0091a2;
-  --color-emerald-800: #007f8e;
-  --color-emerald-900: #006b78;
-  --color-emerald-950: #00545f;
+  --color-emerald-50: #fff6f5;
+  --color-emerald-100: #ffe7e4;
+  --color-emerald-200: #ffcbc5;
+  --color-emerald-300: #fda89e;
+  --color-emerald-400: #f47b6d;
+  --color-emerald-500: #df5647;
+  --color-emerald-600: #c63d32;
+  --color-emerald-700: #a42c25;
+  --color-emerald-800: #81231f;
+  --color-emerald-900: #641b1a;
+  --color-emerald-950: #3d1517;
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -68,73 +69,73 @@
 
 :root {
   color-scheme: light;
-  --background: #e1f7fb;
+  --background: #f7f8f8;
   --foreground: #101b1e;
   --card: #ffffff;
   --card-foreground: #101b1e;
   --popover: #ffffff;
   --popover-foreground: #101b1e;
-  --primary: #01adc1;
+  --primary: #c63d32;
   --primary-foreground: #ffffff;
-  --secondary: #d4f4f7;
-  --secondary-foreground: #00545f;
-  --muted: #eef9fb;
-  --muted-foreground: #60777d;
-  --accent: #c9f0f5;
-  --accent-foreground: #00545f;
+  --secondary: #f1f3f3;
+  --secondary-foreground: #3d1517;
+  --muted: #f1f3f3;
+  --muted-foreground: #647072;
+  --accent: #fff0ed;
+  --accent-foreground: #641b1a;
   --destructive: #dc2626;
-  --border: #b8e2e8;
-  --input: #9fd8e1;
-  --ring: #01adc1;
-  --chart-1: #01adc1;
-  --chart-2: #007f8e;
-  --chart-3: #6bd4e0;
+  --border: #e5d7d4;
+  --input: #e7bab4;
+  --ring: #c63d32;
+  --chart-1: #c63d32;
+  --chart-2: #81231f;
+  --chart-3: #fda89e;
   --chart-4: #f2b134;
   --chart-5: #ef6a6a;
   --radius: 0.75rem;
-  --sidebar: #00545f;
-  --sidebar-foreground: #eafcfe;
-  --sidebar-primary: #01adc1;
+  --sidebar: #3d1517;
+  --sidebar-foreground: #fff8f6;
+  --sidebar-primary: #c63d32;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #00717f;
+  --sidebar-accent: #641b1a;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #1a707a;
-  --sidebar-ring: #2dc2d2;
+  --sidebar-border: #7c3633;
+  --sidebar-ring: #f47b6d;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #06191d;
-  --foreground: #eafcfe;
-  --card: #0b252b;
-  --card-foreground: #eafcfe;
-  --popover: #0b252b;
-  --popover-foreground: #eafcfe;
-  --primary: #2dc2d2;
-  --primary-foreground: #002b31;
-  --secondary: #10343b;
-  --secondary-foreground: #d9f8fb;
-  --muted: #10343b;
-  --muted-foreground: #9bc5cb;
-  --accent: #16444c;
-  --accent-foreground: #eafcfe;
+  --background: #1c1112;
+  --foreground: #fff8f6;
+  --card: #291719;
+  --card-foreground: #fff8f6;
+  --popover: #291719;
+  --popover-foreground: #fff8f6;
+  --primary: #f47b6d;
+  --primary-foreground: #3d1517;
+  --secondary: #3a2022;
+  --secondary-foreground: #ffe9e5;
+  --muted: #3a2022;
+  --muted-foreground: #d8b5af;
+  --accent: #4b2829;
+  --accent-foreground: #fff8f6;
   --destructive: #f87171;
-  --border: #24535b;
-  --input: #2b5c65;
-  --ring: #2dc2d2;
-  --chart-1: #2dc2d2;
-  --chart-2: #01adc1;
-  --chart-3: #6bd4e0;
+  --border: #593334;
+  --input: #64393a;
+  --ring: #f47b6d;
+  --chart-1: #f47b6d;
+  --chart-2: #c63d32;
+  --chart-3: #fda89e;
   --chart-4: #f2b134;
   --chart-5: #ef6a6a;
-  --sidebar: #041417;
-  --sidebar-foreground: #eafcfe;
-  --sidebar-primary: #2dc2d2;
-  --sidebar-primary-foreground: #002b31;
-  --sidebar-accent: #10343b;
+  --sidebar: #1c1112;
+  --sidebar-foreground: #fff8f6;
+  --sidebar-primary: #f47b6d;
+  --sidebar-primary-foreground: #3d1517;
+  --sidebar-accent: #3a2022;
   --sidebar-accent-foreground: #eafcfe;
-  --sidebar-border: #24535b;
-  --sidebar-ring: #2dc2d2;
+  --sidebar-border: #593334;
+  --sidebar-ring: #f47b6d;
 }
 
 @keyframes skeleton-shimmer {
