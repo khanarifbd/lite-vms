@@ -112,6 +112,12 @@ function documentStatusLabel(vehicle: ProviderVehiclePage["items"][number]) {
   return `${vehicle.document_days_remaining} days left`
 }
 
+function shortDate(value: string | null) {
+  if (!value) return "—"
+  const date = new Date(`${value}T00:00:00`)
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-BD", { dateStyle: "medium" }).format(date)
+}
+
 function pageHref(
   cursor: string,
   filters: { search: string; status: string; gps: string; tracking: string; limit: number; ownerId: string; documentStatus: string }
@@ -374,7 +380,7 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
           <CardContent className="p-4 sm:p-6">
             {vehicles.items.length ? (
               <div className="overflow-x-auto rounded-xl border">
-                <table className="w-full min-w-[1040px] border-collapse text-sm">
+                <table className="w-full min-w-[1190px] border-collapse text-sm">
                   <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
                       <th className="px-4 py-3 font-medium">Vehicle name</th>
@@ -383,6 +389,7 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                       <th className="px-4 py-3 font-medium">Vehicle type</th>
                       <th className="px-4 py-3 font-medium">Verification</th>
                       <th className="px-4 py-3 font-medium">Documents</th>
+                      <th className="px-4 py-3 font-medium">Certificate</th>
                       <th className="px-4 py-3 font-medium">Status</th>
                       <th className="px-4 py-3 text-right font-medium">Action</th>
                     </tr>
@@ -400,6 +407,13 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                           <p className="mt-0.5 max-w-56 truncate text-xs text-muted-foreground">
                             {[vehicle.brand, vehicle.model].filter(Boolean).join(" · ") || "Imported vehicle"}
                           </p>
+                        </td>
+                        <td className="px-4 py-3">
+                          {vehicle.certificate_number ? (
+                            <><p className="font-medium text-emerald-800">Issued {shortDate(vehicle.certificate_issued_at)}</p><p className="mt-0.5 text-xs text-muted-foreground">Expires {shortDate(vehicle.certificate_expires_at)}</p></>
+                          ) : (
+                            <Link href={`/provider/vehicles/${vehicle.id}/certificate`} className="text-xs font-medium text-emerald-800 hover:underline">Not issued</Link>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <p className="max-w-48 truncate font-medium">{vehicle.owner.owner_name}</p>

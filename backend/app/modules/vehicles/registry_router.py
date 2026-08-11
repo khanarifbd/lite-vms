@@ -427,6 +427,9 @@ async def vehicle_registry(
                 Vehicle.tax_token_expiry_date,
                 Vehicle.insurance_expiry_date,
                 Vehicle.route_permit_expiry_date,
+                Vehicle.certificate_number,
+                Vehicle.certificate_issued_at,
+                Vehicle.certificate_expires_at,
                 Vehicle.created_at,
                 Vehicle.updated_at,
             )
@@ -477,6 +480,9 @@ async def vehicle_registry(
             document_status=status_value,
             document_days_remaining=days_remaining,
             missing_documents=missing_documents,
+            certificate_number=row.certificate_number,
+            certificate_issued_at=row.certificate_issued_at,
+            certificate_expires_at=row.certificate_expires_at,
             created_at=row.created_at,
             updated_at=row.updated_at,
         ))

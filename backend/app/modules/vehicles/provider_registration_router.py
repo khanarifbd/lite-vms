@@ -1,5 +1,6 @@
 import secrets
 import uuid
+from datetime import UTC, date, datetime, timedelta
 from urllib.parse import quote
 from typing import Annotated
 
@@ -10,6 +11,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import (
+    DocumentStatus,
+    DocumentType,
     OwnerVerificationStatus,
     ProviderStatus,
     UserRole,
@@ -19,6 +22,7 @@ from app.core.database import get_session
 from app.modules.audit.service import write_audit_log
 from app.modules.auth.dependencies import require_roles
 from app.modules.auth.model import User
+from app.modules.documents.model import VehicleDocument
 from app.modules.owners.model import VehicleOwner
 from app.modules.owners.service import get_owner_username
 from app.core.config import settings
@@ -55,6 +59,65 @@ PROVIDER_VEHICLE_EDITABLE_STATUSES = {
     VehicleVerificationStatus.DRAFT,
     VehicleVerificationStatus.CHANGES_REQUESTED,
 }
+CERTIFICATE_DOCUMENT_TYPES = (
+    DocumentType.REGISTRATION,
+    DocumentType.FITNESS,
+    DocumentType.TAX_TOKEN,
+    DocumentType.INSURANCE,
+    DocumentType.ROUTE_PERMIT,
+)
+
+
+async def certificate_readiness(session: AsyncSession, vehicle: Vehicle) -> tuple[list[str], date | None]:
+    documents = list(
+        await session.scalars(
+            select(VehicleDocument).where(
+                VehicleDocument.vehicle_id == vehicle.id,
+                VehicleDocument.is_active.is_(True),
+                VehicleDocument.status != DocumentStatus.REVOKED,
+            )
+        )
+    )
+    documents_by_type = {document.document_type: document for document in documents}
+    missing = [
+        document_type.value.replace("_", " ")
+        for document_type in CERTIFICATE_DOCUMENT_TYPES
+        if document_type not in documents_by_type
+    ]
+    today = date.today()
+    expiring_documents = [
+        document
+        for document_type, document in documents_by_type.items()
+        if document_type != DocumentType.REGISTRATION
+        and (document.expires_at is None or document.expires_at < today)
+    ]
+    if expiring_documents:
+        missing.extend(
+            f"valid {document.document_type.value.replace('_', ' ')}"
+            for document in expiring_documents
+        )
+    expiry_dates = [
+        document.expires_at
+        for document_type, document in documents_by_type.items()
+        if document_type != DocumentType.REGISTRATION and document.expires_at is not None
+    ]
+    return missing, min(expiry_dates) if expiry_dates else None
+
+
+def certificate_payload(vehicle: Vehicle, *, requirements: list[str]) -> dict[str, object]:
+    today = date.today()
+    status_value = "not_issued"
+    if vehicle.certificate_number and vehicle.certificate_expires_at:
+        status_value = "expired" if vehicle.certificate_expires_at < today else "active"
+    return {
+        "certificate_number": vehicle.certificate_number,
+        "issued_at": vehicle.certificate_issued_at,
+        "expires_at": vehicle.certificate_expires_at,
+        "generated_at": vehicle.certificate_generated_at,
+        "status": status_value,
+        "requirements": requirements,
+        "can_generate": not requirements,
+    }
 
 
 @router.post("/gomax-import")
@@ -340,6 +403,56 @@ async def read_provider_vehicle(
         vehicle_id=vehicle_id,
     )
     return await build_vehicle_read(session, vehicle)
+
+
+@router.get("/{vehicle_id}/certificate")
+async def get_provider_vehicle_certificate(
+    vehicle_id: uuid.UUID,
+    actor: Annotated[User, Depends(require_roles(*PROVIDER_VEHICLE_READ_ROLES))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    vehicle, _ = await get_provider_vehicle(session, actor=actor, vehicle_id=vehicle_id)
+    requirements, _ = await certificate_readiness(session, vehicle)
+    return certificate_payload(vehicle, requirements=requirements)
+
+
+@router.post("/{vehicle_id}/certificate")
+async def generate_provider_vehicle_certificate(
+    vehicle_id: uuid.UUID,
+    actor: Annotated[User, Depends(require_roles(*PROVIDER_VEHICLE_MANAGE_ROLES))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, object]:
+    vehicle, provider = await get_provider_vehicle(session, actor=actor, vehicle_id=vehicle_id)
+    requirements, document_expiry = await certificate_readiness(session, vehicle)
+    if requirements:
+        raise HTTPException(
+            status_code=422,
+            detail="Certificate requires current documents: " + ", ".join(requirements),
+        )
+
+    issued_at = date.today()
+    expires_at = min(issued_at + timedelta(days=365), document_expiry) if document_expiry else issued_at + timedelta(days=365)
+    vehicle.certificate_number = f"VTS-{issued_at:%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
+    vehicle.certificate_issued_at = issued_at
+    vehicle.certificate_expires_at = expires_at
+    vehicle.certificate_generated_at = datetime.now(UTC)
+    vehicle.certificate_generated_by_user_id = actor.id
+    await write_audit_log(
+        session,
+        tenant_id=provider.tenant_id,
+        actor_user_id=actor.id,
+        actor_organization_id=provider.root_organization_id,
+        action="vehicle.certificate_generated",
+        resource_type="vehicle",
+        resource_public_id=vehicle.id,
+        new_values={
+            "certificate_number": vehicle.certificate_number,
+            "issued_at": issued_at.isoformat(),
+            "expires_at": expires_at.isoformat(),
+        },
+    )
+    await session.commit()
+    return certificate_payload(vehicle, requirements=[])
 
 
 @router.patch("/{vehicle_id}", response_model=VehicleRead)

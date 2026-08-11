@@ -40,6 +40,9 @@ class VehicleRegistryItem(BaseModel):
     document_status: str
     document_days_remaining: int | None = None
     missing_documents: list[str] = Field(default_factory=list)
+    certificate_number: str | None = None
+    certificate_issued_at: date | None = None
+    certificate_expires_at: date | None = None
     created_at: datetime
     updated_at: datetime
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { FileText, LayoutDashboard, QrCode, RadioTower, UsersRound } from "lucide-react"
+import { Award, FileText, LayoutDashboard, QrCode, RadioTower, UsersRound } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -19,6 +19,7 @@ export function VehicleWorkspaceNav({
   const items = [
     { href: baseHref, label: "Vehicle overview", icon: LayoutDashboard },
     { href: `${baseHref}/documents`, label: "Documents", icon: FileText },
+    { href: `${baseHref}/certificate`, label: "Certificate", icon: Award },
     { href: `${baseHref}/tracking`, label: trackingLabel, icon: RadioTower },
     { href: `${baseHref}/drivers`, label: "Drivers", icon: UsersRound },
     { href: `${baseHref}/qr`, label: "Vehicle QR", icon: QrCode },

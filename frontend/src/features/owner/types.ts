@@ -55,6 +55,9 @@ export type OwnerVehicle = {
   document_status: "required" | "expired" | "expiring" | "valid"
   document_days_remaining: number | null
   missing_documents: string[]
+  certificate_number: string | null
+  certificate_issued_at: string | null
+  certificate_expires_at: string | null
   created_at: string
   updated_at: string
 }

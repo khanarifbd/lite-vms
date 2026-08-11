@@ -45,6 +45,13 @@ class Vehicle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     route_permit_number: Mapped[str | None] = mapped_column(String(120), nullable=True)
     route_permit_area: Mapped[str | None] = mapped_column(Text, nullable=True)
     route_permit_expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    certificate_number: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True, index=True)
+    certificate_issued_at: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    certificate_expires_at: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    certificate_generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    certificate_generated_by_user_id: Mapped[int | None] = mapped_column(
+        BIGINT_PK, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     owner_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("vehicle_owners.id", ondelete="RESTRICT"), index=True
