@@ -1,9 +1,11 @@
 import uuid
+import base64
+import json
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import case, func, or_, select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -248,6 +250,19 @@ def apply_search(conditions: list[object], search: str | None) -> None:
     )
 
 
+def decode_cursor(value: str) -> tuple[datetime, uuid.UUID]:
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(value.encode()).decode())
+        return datetime.fromisoformat(payload["created_at"]), uuid.UUID(payload["id"])
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("Invalid vehicle cursor") from exc
+
+
+def encode_cursor(created_at: datetime, vehicle_id: uuid.UUID) -> str:
+    payload = json.dumps({"created_at": created_at.isoformat(), "id": str(vehicle_id)})
+    return base64.urlsafe_b64encode(payload.encode()).decode()
+
+
 @router.get("/registry", response_model=VehicleRegistryPage)
 async def vehicle_registry(
     actor: Annotated[User, Depends(require_roles(*REGISTRY_ROLES))],
@@ -262,6 +277,7 @@ async def vehicle_registry(
     search: Annotated[str | None, Query(max_length=120)] = None,
     gps_online: bool | None = None,
     tracking_status: TrackingAssignmentStatus | None = None,
+    cursor: str | None = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 24,
 ) -> VehicleRegistryPage:
@@ -288,9 +304,23 @@ async def vehicle_registry(
             or_(tracking_last_seen.is_(None), tracking_last_seen < online_cutoff)
         )
     apply_search(conditions, search)
+    stats_conditions = list(conditions)
+
+    if cursor:
+        try:
+            cursor_created_at, cursor_id = decode_cursor(cursor)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        conditions.append(
+            or_(
+                Vehicle.created_at < cursor_created_at,
+                and_(Vehicle.created_at == cursor_created_at, Vehicle.id < cursor_id),
+            )
+        )
 
     filtered_ids = select(Vehicle.id).where(*conditions)
     filtered_vehicle = Vehicle.id.in_(filtered_ids)
+    stats_vehicle = Vehicle.id.in_(select(Vehicle.id).where(*stats_conditions))
     gps_online_expression = tracking_last_seen >= online_cutoff
 
     stats_row = (
@@ -323,7 +353,7 @@ async def vehicle_registry(
                     ),
                     0,
                 ).label("active_tracking"),
-            ).where(filtered_vehicle)
+            ).where(stats_vehicle)
         )
     ).one()
 
@@ -354,11 +384,14 @@ async def vehicle_registry(
                 Vehicle.updated_at,
             )
             .where(filtered_vehicle)
-            .order_by(Vehicle.registration_number, Vehicle.id)
+            .order_by(Vehicle.created_at.desc(), Vehicle.id.desc())
             .offset(offset)
-            .limit(limit)
+            .limit(limit + 1)
         )
     ).all()
+
+    has_next = len(rows) > limit
+    rows = rows[:limit]
 
     items = [
         VehicleRegistryItem(
@@ -402,4 +435,5 @@ async def vehicle_registry(
         offset=offset,
         limit=limit,
         stats=stats,
+        next_cursor=(encode_cursor(rows[-1].created_at, rows[-1].id) if has_next and rows else None),
     )

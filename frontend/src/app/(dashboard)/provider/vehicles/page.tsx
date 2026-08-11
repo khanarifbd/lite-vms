@@ -58,6 +58,10 @@ const trackingStatuses = [
   "rejected",
 ] as const
 
+// Tracking remains implemented for a later product phase, but is intentionally
+// hidden from the BTS vehicle-management workspace.
+const trackingUiEnabled = false
+
 const dateFormatter = new Intl.DateTimeFormat("en-BD", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -72,6 +76,7 @@ type ProviderVehiclesPageProps = {
     status?: SearchValue
     gps?: SearchValue
     tracking?: SearchValue
+    cursor?: SearchValue
   }>
 }
 
@@ -94,11 +99,11 @@ function statusLabel(value: string) {
 }
 
 function pageHref(
-  page: number,
+  cursor: string,
   filters: { search: string; status: string; gps: string; tracking: string }
 ) {
   const params = new URLSearchParams()
-  if (page > 1) params.set("page", String(page))
+  if (cursor) params.set("cursor", cursor)
   if (filters.search) params.set("search", filters.search)
   if (filters.status) params.set("status", filters.status)
   if (filters.gps) params.set("gps", filters.gps)
@@ -165,19 +170,18 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
   )
     ? requestedTracking
     : ""
-  const parsedPage = Number.parseInt(firstValue(params.page) || "1", 10)
-  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1
+  const cursor = firstValue(params.cursor) || ""
 
   let vehicles: ProviderVehiclePage | null = null
   let loadError: string | null = null
   try {
     vehicles = await getProviderVehicles({
-      page,
       limit: PAGE_SIZE,
       search,
       status,
       gps,
       tracking,
+      cursor,
     })
   } catch (error) {
     loadError =
@@ -198,11 +202,8 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
     )
   }
 
-  const currentPage = Math.floor(vehicles.offset / vehicles.limit) + 1
-  const pageCount = Math.max(1, Math.ceil(vehicles.total / vehicles.limit))
-  const hasPreviousPage = vehicles.offset > 0
-  const hasNextPage = vehicles.offset + vehicles.items.length < vehicles.total
-  const hasFilters = Boolean(search || status || gps || tracking)
+  const hasNextPage = Boolean(vehicles.next_cursor)
+  const hasFilters = Boolean(search || status || (trackingUiEnabled && (gps || tracking)))
   const filters = { search, status, gps, tracking }
   const canManage = userHasAnyRole(user, vehicleManageRoles)
 
@@ -238,8 +239,12 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
           {[
             { label: "Linked vehicles", value: vehicles.stats.total, icon: CarFront },
             { label: "Verified vehicles", value: vehicles.stats.verified, icon: Gauge },
-            { label: "GPS online", value: vehicles.stats.online, icon: RadioTower },
-            { label: "Active tracking", value: vehicles.stats.active_tracking, icon: MapPin },
+            ...(trackingUiEnabled
+              ? [
+                  { label: "GPS online", value: vehicles.stats.online, icon: RadioTower },
+                  { label: "Active tracking", value: vehicles.stats.active_tracking, icon: MapPin },
+                ]
+              : []),
           ].map(({ label, value, icon: Icon }) => (
             <Card key={label}>
               <CardContent className="flex items-start justify-between gap-4 p-5">
@@ -269,7 +274,7 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
             </div>
 
             <form
-              className="mt-4 grid gap-3 xl:grid-cols-[minmax(260px,1fr)_210px_160px_220px_auto_auto]"
+              className="mt-4 grid gap-3 xl:grid-cols-[minmax(260px,1fr)_210px_auto_auto]"
               method="get"
             >
               <div className="relative">
@@ -297,29 +302,33 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                   </option>
                 ))}
               </select>
-              <select
-                aria-label="GPS status"
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                defaultValue={gps}
-                name="gps"
-              >
-                <option value="">All GPS statuses</option>
-                <option value="online">GPS online</option>
-                <option value="offline">GPS offline</option>
-              </select>
-              <select
-                aria-label="Tracking status"
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                defaultValue={tracking}
-                name="tracking"
-              >
-                <option value="">All tracking statuses</option>
-                {trackingStatuses.map((value) => (
-                  <option key={value} value={value}>
-                    {statusLabel(value)}
-                  </option>
-                ))}
-              </select>
+              {trackingUiEnabled ? (
+                <>
+                  <select
+                    aria-label="GPS status"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    defaultValue={gps}
+                    name="gps"
+                  >
+                    <option value="">All GPS statuses</option>
+                    <option value="online">GPS online</option>
+                    <option value="offline">GPS offline</option>
+                  </select>
+                  <select
+                    aria-label="Tracking status"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    defaultValue={tracking}
+                    name="tracking"
+                  >
+                    <option value="">All tracking statuses</option>
+                    {trackingStatuses.map((value) => (
+                      <option key={value} value={value}>
+                        {statusLabel(value)}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ) : null}
               <Button type="submit">Apply</Button>
               {hasFilters ? (
                 <Button asChild type="button" variant="outline">
@@ -331,9 +340,9 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
 
           <CardContent className="p-4 sm:p-6">
             {vehicles.items.length ? (
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="divide-y overflow-hidden rounded-2xl border bg-white">
                 {vehicles.items.map((vehicle) => (
-                  <article key={vehicle.id} className="rounded-2xl border bg-white p-5 shadow-sm">
+                  <article key={vehicle.id} className="p-4 transition-colors hover:bg-slate-50">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex min-w-0 items-start gap-3">
                         <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800">
@@ -356,7 +365,7 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                       <StatusBadge status={vehicle.verification_status} />
                     </div>
 
-                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
                       <div className="rounded-xl bg-slate-50 px-3 py-2.5">
                         <p className="text-xs text-muted-foreground">Vehicle owner</p>
                         <p className="mt-1 truncate font-medium">{vehicle.owner.owner_name}</p>
@@ -364,32 +373,41 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                           {vehicle.owner.owner_code || "Owner code pending"}
                         </p>
                       </div>
-                      <div className="rounded-xl bg-slate-50 px-3 py-2.5">
-                        <p className="text-xs text-muted-foreground">GPS status</p>
-                        <p className="mt-1 flex items-center gap-2 font-medium">
-                          <span
-                            className={`size-2 rounded-full ${vehicle.gps_online ? "bg-emerald-500" : "bg-slate-300"}`}
-                          />
-                          {vehicle.gps_online ? "Online" : "Offline"}
-                        </p>
-                        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock3 aria-hidden="true" className="size-3" />
-                          {formatDate(vehicle.tracking_last_seen_at)}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-slate-50 px-3 py-2.5">
-                        <p className="text-xs text-muted-foreground">Tracking provider</p>
-                        <p className="mt-1 truncate font-medium">
-                          {vehicle.tracking_provider_name || "Not connected"}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-slate-50 px-3 py-2.5">
-                        <p className="text-xs text-muted-foreground">Current driver</p>
-                        <p className="mt-1 flex items-center gap-1.5 truncate font-medium">
-                          <UserRound aria-hidden="true" className="size-3.5 shrink-0" />
-                          {vehicle.current_driver_name || "Not assigned"}
-                        </p>
-                      </div>
+                      {trackingUiEnabled ? (
+                        <>
+                          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                            <p className="text-xs text-muted-foreground">GPS status</p>
+                            <p className="mt-1 flex items-center gap-2 font-medium">
+                              <span
+                                className={`size-2 rounded-full ${vehicle.gps_online ? "bg-emerald-500" : "bg-slate-300"}`}
+                              />
+                              {vehicle.gps_online ? "Online" : "Offline"}
+                            </p>
+                            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock3 aria-hidden="true" className="size-3" />
+                              {formatDate(vehicle.tracking_last_seen_at)}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                            <p className="text-xs text-muted-foreground">Tracking provider</p>
+                            <p className="mt-1 truncate font-medium">
+                              {vehicle.tracking_provider_name || "Not connected"}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                            <p className="text-xs text-muted-foreground">Current driver</p>
+                            <p className="mt-1 flex items-center gap-1.5 truncate font-medium">
+                              <UserRound aria-hidden="true" className="size-3.5 shrink-0" />
+                              {vehicle.current_driver_name || "Not assigned"}
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                          <p className="text-xs text-muted-foreground">Registration status</p>
+                          <p className="mt-1 font-medium">{statusLabel(vehicle.status)}</p>
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
@@ -397,13 +415,17 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                         <Badge variant="outline" className="capitalize">
                           {statusLabel(vehicle.status)}
                         </Badge>
-                        <Badge variant="outline">
-                          Tracking {statusLabel(vehicle.tracking_assignment_status || "not_assigned")}
-                        </Badge>
-                        {vehicle.latest_speed_kph !== null ? (
-                          <Badge variant="secondary">
-                            Latest speed {Math.round(vehicle.latest_speed_kph)} km/h
-                          </Badge>
+                        {trackingUiEnabled ? (
+                          <>
+                            <Badge variant="outline">
+                              Tracking {statusLabel(vehicle.tracking_assignment_status || "not_assigned")}
+                            </Badge>
+                            {vehicle.latest_speed_kph !== null ? (
+                              <Badge variant="secondary">
+                                Latest speed {Math.round(vehicle.latest_speed_kph)} km/h
+                              </Badge>
+                            ) : null}
+                          </>
                         ) : null}
                       </div>
                       <Button asChild size="sm" variant="outline">
@@ -441,24 +463,13 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
             {vehicles.total > 0 ? (
               <div className="mt-6 flex flex-col items-center justify-between gap-3 border-t pt-5 sm:flex-row">
                 <p className="text-sm text-muted-foreground">
-                  Page {currentPage} of {pageCount} · showing {vehicles.items.length} record
+                  Showing {vehicles.items.length} record
                   {vehicles.items.length === 1 ? "" : "s"}
                 </p>
                 <div className="flex items-center gap-2">
-                  <Button asChild={hasPreviousPage} disabled={!hasPreviousPage} variant="outline">
-                    {hasPreviousPage ? (
-                      <Link href={pageHref(currentPage - 1, filters)}>
-                        <ChevronLeft aria-hidden="true" /> Previous
-                      </Link>
-                    ) : (
-                      <span>
-                        <ChevronLeft aria-hidden="true" /> Previous
-                      </span>
-                    )}
-                  </Button>
                   <Button asChild={hasNextPage} disabled={!hasNextPage} variant="outline">
                     {hasNextPage ? (
-                      <Link href={pageHref(currentPage + 1, filters)}>
+                      <Link href={pageHref(vehicles.next_cursor || "", filters)}>
                         Next <ChevronRight aria-hidden="true" />
                       </Link>
                     ) : (

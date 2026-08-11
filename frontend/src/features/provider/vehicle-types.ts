@@ -17,4 +17,5 @@ export type ProviderVehicleRegistryQuery = {
   status?: string
   gps?: "online" | "offline" | ""
   tracking?: string
+  cursor?: string
 }

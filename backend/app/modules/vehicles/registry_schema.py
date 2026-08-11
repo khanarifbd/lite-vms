@@ -54,3 +54,4 @@ class VehicleRegistryPage(BaseModel):
     offset: int
     limit: int
     stats: VehicleRegistryStats
+    next_cursor: str | None = None

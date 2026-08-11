@@ -69,6 +69,7 @@ export type OwnerVehiclePage = {
   offset: number
   limit: number
   stats: OwnerVehicleRegistryStats
+  next_cursor: string | null
 }
 
 export type OwnerPortalData = {
