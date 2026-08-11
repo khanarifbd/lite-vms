@@ -2,7 +2,7 @@
 
 import { AlertCircle, Loader2, Save, Send } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { type FormEvent, type ReactNode, useRef, useState } from "react"
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,25 @@ type VehicleEditFormProps = {
 
 type SaveMode = "save" | "resubmit"
 
+type RegistrationOption = { value: string; label: string }
+type VehicleRegistrationOptions = {
+  vehicle_types: RegistrationOption[]
+  vehicle_categories: RegistrationOption[]
+  usage_types: RegistrationOption[]
+  body_types: RegistrationOption[]
+  fuel_types: RegistrationOption[]
+  colors: RegistrationOption[]
+}
+
+const emptyOptions: VehicleRegistrationOptions = {
+  vehicle_types: [],
+  vehicle_categories: [],
+  usage_types: [],
+  body_types: [],
+  fuel_types: [],
+  colors: [],
+}
+
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <div className="space-y-2">
@@ -29,6 +48,23 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       {children}
       {hint ? <p className="text-xs leading-5 text-muted-foreground">{hint}</p> : null}
     </div>
+  )
+}
+
+function SelectField({ name, options, value, placeholder, required = false }: {
+  name: string
+  options: RegistrationOption[]
+  value: string | null
+  placeholder: string
+  required?: boolean
+}) {
+  const hasCurrentValue = Boolean(value && !options.some((option) => option.value === value))
+  return (
+    <select name={name} defaultValue={value || ""} required={required} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
+      <option value="">{placeholder}</option>
+      {hasCurrentValue ? <option value={value || ""}>{value}</option> : null}
+      {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+    </select>
   )
 }
 
@@ -54,7 +90,17 @@ export function VehicleEditForm({ vehicle, apiBase, detailsBase, mode }: Vehicle
   const formRef = useRef<HTMLFormElement>(null)
   const [pendingMode, setPendingMode] = useState<SaveMode | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [options, setOptions] = useState<VehicleRegistrationOptions>(emptyOptions)
   const isGoMaxImported = vehicle.registration_number.startsWith("GOMAX-")
+
+  useEffect(() => {
+    let active = true
+    void fetch("/api/vehicle-registration-options")
+      .then((response) => response.ok ? response.json() as Promise<VehicleRegistrationOptions> : Promise.reject(new Error("Unable to load vehicle options.")))
+      .then((result) => { if (active) setOptions(result) })
+      .catch(() => undefined)
+    return () => { active = false }
+  }, [])
 
   function buildPayload(data: FormData): VehicleUpdatePayload {
     const registrationNumber = isGoMaxImported
@@ -247,35 +293,27 @@ export function VehicleEditForm({ vehicle, apiBase, detailsBase, mode }: Vehicle
             <Field label="Engine number">
               <Input name="engine_number" maxLength={120} defaultValue={vehicle.engine_number || ""} />
             </Field>
-            <Field label="Vehicle type">
-              <Input name="vehicle_type" required maxLength={60} defaultValue={vehicle.vehicle_type} />
+            <Field label="Vehicle type" hint="Managed by Super Admin in System Settings.">
+              <SelectField name="vehicle_type" required options={options.vehicle_types} value={vehicle.vehicle_type} placeholder="Select vehicle type" />
             </Field>
             <Field label="Vehicle category">
-              <Input name="vehicle_category" maxLength={80} defaultValue={vehicle.vehicle_category || ""} />
+              <SelectField name="vehicle_category" options={options.vehicle_categories} value={vehicle.vehicle_category} placeholder="Select vehicle category" />
             </Field>
             <Field label="Usage type">
-              <Input name="usage_type" maxLength={40} defaultValue={vehicle.usage_type || ""} />
+              <SelectField name="usage_type" options={options.usage_types} value={vehicle.usage_type} placeholder="Select usage type" />
             </Field>
             <Field label="Body type">
-              <Input name="body_type" maxLength={80} defaultValue={vehicle.body_type || ""} />
+              <SelectField name="body_type" options={options.body_types} value={vehicle.body_type} placeholder="Select body type" />
             </Field>
             <Field label="Fuel type">
-              <select name="fuel_type" defaultValue={vehicle.fuel_type || ""} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                <option value="">Select fuel type</option>
-                <option value="petrol">Petrol</option>
-                <option value="diesel">Diesel</option>
-                <option value="octane">Octane</option>
-                <option value="cng">CNG</option>
-                <option value="electric">Electric</option>
-                <option value="hybrid">Hybrid</option>
-              </select>
+              <SelectField name="fuel_type" options={options.fuel_types} value={vehicle.fuel_type} placeholder="Select fuel type" />
             </Field>
             <Field label="Brand"><Input name="brand" maxLength={100} defaultValue={vehicle.brand || ""} /></Field>
             <Field label="Model"><Input name="model" maxLength={100} defaultValue={vehicle.model || ""} /></Field>
             <Field label="Manufacturing year">
               <Input name="manufacturing_year" type="number" min={1900} max={2200} defaultValue={vehicle.manufacturing_year ?? ""} />
             </Field>
-            <Field label="Color"><Input name="color" maxLength={60} defaultValue={vehicle.color || ""} /></Field>
+            <Field label="Color"><SelectField name="color" options={options.colors} value={vehicle.color} placeholder="Select vehicle color" /></Field>
             <Field label="Registration date"><Input name="registration_date" type="date" defaultValue={vehicle.registration_date || ""} /></Field>
             <Field label="Registration authority">
               <Input name="registration_authority" maxLength={120} defaultValue={vehicle.registration_authority || ""} />
