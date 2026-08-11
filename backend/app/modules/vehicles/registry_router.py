@@ -1,7 +1,7 @@
 import uuid
 import base64
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -65,6 +65,32 @@ TRACKING_VISIBLE_STATUSES = (
     TrackingAssignmentStatus.TESTING,
     TrackingAssignmentStatus.ACTIVE,
 )
+
+COMPLIANCE_DOCUMENTS = (
+    ("Fitness", Vehicle.fitness_expiry_date),
+    ("Tax token", Vehicle.tax_token_expiry_date),
+    ("Insurance", Vehicle.insurance_expiry_date),
+    ("Route permit", Vehicle.route_permit_expiry_date),
+)
+
+
+def document_status_for_vehicle(
+    expiry_dates: dict[str, date | None], *, today: date
+) -> tuple[str, int | None, list[str]]:
+    missing = [name for name, expiry_date in expiry_dates.items() if expiry_date is None]
+    available_dates = [expiry_date for expiry_date in expiry_dates.values() if expiry_date is not None]
+    days_remaining = (
+        min((expiry_date - today).days for expiry_date in available_dates)
+        if available_dates
+        else None
+    )
+    if missing:
+        return "required", days_remaining, missing
+    if days_remaining is not None and days_remaining < 0:
+        return "expired", days_remaining, []
+    if days_remaining is not None and days_remaining <= 30:
+        return "expiring", days_remaining, []
+    return "valid", days_remaining, []
 
 def role_codes(actor: User) -> set[str]:
     return set(getattr(actor, "_role_codes", set()))
@@ -277,6 +303,7 @@ async def vehicle_registry(
     search: Annotated[str | None, Query(max_length=120)] = None,
     gps_online: bool | None = None,
     tracking_status: TrackingAssignmentStatus | None = None,
+    document_status: Annotated[str | None, Query(max_length=20)] = None,
     cursor: str | None = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 24,
@@ -304,6 +331,22 @@ async def vehicle_registry(
             or_(tracking_last_seen.is_(None), tracking_last_seen < online_cutoff)
         )
     apply_search(conditions, search)
+    today = date.today()
+    document_date_columns = [column for _, column in COMPLIANCE_DOCUMENTS]
+    if document_status:
+        if document_status == "required":
+            conditions.append(or_(*(column.is_(None) for column in document_date_columns)))
+        elif document_status == "expired":
+            conditions.append(or_(*(column < today for column in document_date_columns)))
+        elif document_status == "expiring":
+            expiry_cutoff = today + timedelta(days=30)
+            conditions.append(
+                or_(
+                    *(and_(column >= today, column <= expiry_cutoff) for column in document_date_columns)
+                )
+            )
+        elif document_status != "valid":
+            raise HTTPException(status_code=422, detail="Invalid document status")
     stats_conditions = list(conditions)
 
     if cursor:
@@ -380,6 +423,10 @@ async def vehicle_registry(
                 assignment_status.label("tracking_assignment_status"),
                 expressions["provider_name"].label("tracking_provider_name"),
                 expressions["driver_name"].label("current_driver_name"),
+                Vehicle.fitness_expiry_date,
+                Vehicle.tax_token_expiry_date,
+                Vehicle.insurance_expiry_date,
+                Vehicle.route_permit_expiry_date,
                 Vehicle.created_at,
                 Vehicle.updated_at,
             )
@@ -393,8 +440,18 @@ async def vehicle_registry(
     has_next = len(rows) > limit
     rows = rows[:limit]
 
-    items = [
-        VehicleRegistryItem(
+    items = []
+    for row in rows:
+        status_value, days_remaining, missing_documents = document_status_for_vehicle(
+            {
+                "Fitness": row.fitness_expiry_date,
+                "Tax token": row.tax_token_expiry_date,
+                "Insurance": row.insurance_expiry_date,
+                "Route permit": row.route_permit_expiry_date,
+            },
+            today=today,
+        )
+        items.append(VehicleRegistryItem(
             id=row.id,
             registration_number=row.registration_number,
             registration_number_display=row.registration_number_display,
@@ -417,11 +474,12 @@ async def vehicle_registry(
             tracking_assignment_status=row.tracking_assignment_status,
             tracking_provider_name=row.tracking_provider_name,
             current_driver_name=row.current_driver_name,
+            document_status=status_value,
+            document_days_remaining=days_remaining,
+            missing_documents=missing_documents,
             created_at=row.created_at,
             updated_at=row.updated_at,
-        )
-        for row in rows
-    ]
+        ))
 
     stats = VehicleRegistryStats(
         total=int(stats_row.total or 0),

@@ -19,4 +19,5 @@ export type ProviderVehicleRegistryQuery = {
   tracking?: string
   cursor?: string
   ownerId?: string
+  documentStatus?: "" | "required" | "expired" | "expiring"
 }

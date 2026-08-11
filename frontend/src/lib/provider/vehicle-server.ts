@@ -16,12 +16,14 @@ export async function getProviderVehicles({
   tracking = "",
   cursor = "",
   ownerId = "",
+  documentStatus = "",
 }: ProviderVehicleRegistryQuery = {}) {
   const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1
   const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)))
   const params = new URLSearchParams({ limit: String(safeLimit) })
   if (cursor) params.set("cursor", cursor)
   if (ownerId) params.set("owner_id", ownerId)
+  if (documentStatus) params.set("document_status", documentStatus)
 
   if (search.trim()) params.set("search", search.trim())
   if (status) params.set("status", status)

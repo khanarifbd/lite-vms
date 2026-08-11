@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -37,6 +37,9 @@ class VehicleRegistryItem(BaseModel):
     tracking_assignment_status: TrackingAssignmentStatus | None = None
     tracking_provider_name: str | None = None
     current_driver_name: str | None = None
+    document_status: str
+    document_days_remaining: int | None = None
+    missing_documents: list[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

@@ -81,6 +81,7 @@ type ProviderVehiclesPageProps = {
     cursor?: SearchValue
     limit?: SearchValue
     owner?: SearchValue
+    documents?: SearchValue
   }>
 }
 
@@ -102,14 +103,24 @@ function statusLabel(value: string) {
     .join(" ")
 }
 
+function documentStatusLabel(vehicle: ProviderVehiclePage["items"][number]) {
+  if (vehicle.document_status === "required") {
+    return `${vehicle.missing_documents.length} document${vehicle.missing_documents.length === 1 ? "" : "s"} required`
+  }
+  if (vehicle.document_days_remaining === null) return "Not available"
+  if (vehicle.document_days_remaining < 0) return `Expired ${Math.abs(vehicle.document_days_remaining)} days ago`
+  return `${vehicle.document_days_remaining} days left`
+}
+
 function pageHref(
   cursor: string,
-  filters: { search: string; status: string; gps: string; tracking: string; limit: number; ownerId: string }
+  filters: { search: string; status: string; gps: string; tracking: string; limit: number; ownerId: string; documentStatus: string }
 ) {
   const params = new URLSearchParams()
   if (cursor) params.set("cursor", cursor)
   params.set("limit", String(filters.limit))
   if (filters.ownerId) params.set("owner", filters.ownerId)
+  if (filters.documentStatus) params.set("documents", filters.documentStatus)
   if (filters.search) params.set("search", filters.search)
   if (filters.status) params.set("status", filters.status)
   if (filters.gps) params.set("gps", filters.gps)
@@ -192,6 +203,14 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
   const ownerId = ownerOptions.some((item) => item.owner.id === requestedOwnerId)
     ? requestedOwnerId
     : ""
+  const requestedDocumentStatus = firstValue(params.documents) || ""
+  const documentStatus: "" | "required" | "expired" | "expiring" = [
+    "required",
+    "expired",
+    "expiring",
+  ].includes(requestedDocumentStatus)
+    ? (requestedDocumentStatus as "required" | "expired" | "expiring")
+    : ""
 
   let vehicles: ProviderVehiclePage | null = null
   let loadError: string | null = null
@@ -204,6 +223,7 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
       tracking,
       cursor,
       ownerId,
+      documentStatus,
     })
   } catch (error) {
     loadError =
@@ -225,8 +245,8 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
   }
 
   const hasNextPage = Boolean(vehicles.next_cursor)
-  const hasFilters = Boolean(search || status || ownerId || (trackingUiEnabled && (gps || tracking)))
-  const filters = { search, status, gps, tracking, limit, ownerId }
+  const hasFilters = Boolean(search || status || ownerId || documentStatus || (trackingUiEnabled && (gps || tracking)))
+  const filters = { search, status, gps, tracking, limit, ownerId, documentStatus }
   const canManage = userHasAnyRole(user, vehicleManageRoles)
 
   return (
@@ -253,7 +273,7 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
             </div>
 
             <form
-              className="mt-4 grid gap-3 xl:grid-cols-[minmax(260px,1fr)_210px_220px_150px_auto_auto]"
+              className="mt-4 grid gap-3 xl:grid-cols-[minmax(260px,1fr)_210px_220px_170px_150px_auto_auto]"
               method="get"
             >
               <div className="relative">
@@ -304,6 +324,17 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                   <option key={size} value={size}>{size} per page</option>
                 ))}
               </select>
+              <select
+                aria-label="Document compliance"
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                defaultValue={documentStatus}
+                name="documents"
+              >
+                <option value="">All documents</option>
+                <option value="required">Documents required</option>
+                <option value="expired">Any document expired</option>
+                <option value="expiring">Expiring within 30 days</option>
+              </select>
               {trackingUiEnabled ? (
                 <>
                   <select
@@ -343,7 +374,7 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
           <CardContent className="p-4 sm:p-6">
             {vehicles.items.length ? (
               <div className="overflow-x-auto rounded-xl border">
-                <table className="w-full min-w-[900px] border-collapse text-sm">
+                <table className="w-full min-w-[1040px] border-collapse text-sm">
                   <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
                       <th className="px-4 py-3 font-medium">Vehicle name</th>
@@ -351,6 +382,7 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                       <th className="px-4 py-3 font-medium">Registration no.</th>
                       <th className="px-4 py-3 font-medium">Vehicle type</th>
                       <th className="px-4 py-3 font-medium">Verification</th>
+                      <th className="px-4 py-3 font-medium">Documents</th>
                       <th className="px-4 py-3 font-medium">Status</th>
                       <th className="px-4 py-3 text-right font-medium">Action</th>
                     </tr>
@@ -382,6 +414,27 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{vehicle.vehicle_type}</td>
                         <td className="px-4 py-3"><StatusBadge status={vehicle.verification_status} /></td>
+                        <td className="px-4 py-3">
+                          <p
+                            className={
+                              vehicle.document_status === "required" || vehicle.document_status === "expired"
+                                ? "font-medium text-rose-700"
+                                : vehicle.document_status === "expiring"
+                                  ? "font-medium text-amber-700"
+                                  : "font-medium text-emerald-700"
+                            }
+                          >
+                            {documentStatusLabel(vehicle)}
+                          </p>
+                          {vehicle.document_status !== "valid" ? (
+                            <Link
+                              href={`/provider/vehicles/${vehicle.id}/documents`}
+                              className="mt-1 inline-block text-xs font-medium text-emerald-800 hover:underline"
+                            >
+                              Add documents
+                            </Link>
+                          ) : null}
+                        </td>
                         <td className="px-4 py-3"><Badge variant="outline">{statusLabel(vehicle.status)}</Badge></td>
                         <td className="px-4 py-3 text-right">
                           <Button asChild size="sm" variant="outline">

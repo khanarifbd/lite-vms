@@ -52,6 +52,9 @@ export type OwnerVehicle = {
   tracking_assignment_status: string | null
   tracking_provider_name: string | null
   current_driver_name: string | null
+  document_status: "required" | "expired" | "expiring" | "valid"
+  document_days_remaining: number | null
+  missing_documents: string[]
   created_at: string
   updated_at: string
 }
