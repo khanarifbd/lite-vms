@@ -150,10 +150,10 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
       {!collapsed ? (
         <div className="min-w-0">
           <p className="truncate text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-200">
-            Bangladesh Police
+            AutoGeneration LTD
           </p>
           <p className="mt-0.5 truncate text-sm font-semibold text-white">
-            Vehicle Tracking Platform
+            CMS Portal
           </p>
         </div>
       ) : null}
@@ -336,7 +336,7 @@ function MobileSidebar({ user }: { user: AuthUser }) {
         <SheetHeader className="border-b border-white/10 px-5 py-5 text-left">
           <SheetTitle className="sr-only">Super admin navigation</SheetTitle>
           <SheetDescription className="sr-only">
-            National Vehicle Tracking Platform navigation
+            AutoGeneration LTD CMS Portal navigation
           </SheetDescription>
           <Brand />
         </SheetHeader>

@@ -26,9 +26,9 @@ export default async function ChangePasswordPage() {
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800">
-              Bangladesh Police
+              AutoGeneration LTD
             </p>
-            <p className="font-medium">National Vehicle Tracking Platform</p>
+            <p className="font-medium">CMS Portal</p>
           </div>
         </div>
 

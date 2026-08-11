@@ -60,8 +60,8 @@ function Brand() {
         <Gauge className="size-6" />
       </div>
       <div className="min-w-0">
-        <p className="truncate text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-200">Bangladesh Police</p>
-        <p className="mt-0.5 truncate text-sm font-semibold text-white">National Driver Portal</p>
+        <p className="truncate text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-200">AutoGeneration LTD</p>
+        <p className="mt-0.5 truncate text-sm font-semibold text-white">CMS Portal</p>
       </div>
     </div>
   )
@@ -113,7 +113,7 @@ function MobileSidebar({ user }: { user: AuthUser }) {
       <SheetContent side="left" className="w-[88%] max-w-72 gap-0 border-r-0 bg-emerald-950 p-0 text-white">
         <SheetHeader className="border-b border-white/10 px-5 py-5 text-left">
           <SheetTitle className="sr-only">Driver navigation</SheetTitle>
-          <SheetDescription className="sr-only">National Vehicle Tracking Platform driver workspace</SheetDescription>
+          <SheetDescription className="sr-only">AutoGeneration LTD CMS Portal driver workspace</SheetDescription>
           <Brand />
         </SheetHeader>
         <Navigation mobile />

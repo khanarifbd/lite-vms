@@ -80,10 +80,10 @@ export default async function LoginPage() {
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-emerald-200 xl:text-sm">
-              Bangladesh Police
+              AutoGeneration LTD
             </p>
             <h1 className="mt-1 max-w-xl text-xl font-semibold tracking-tight xl:text-2xl">
-              National Vehicle Tracking Platform
+              CMS Portal
             </h1>
           </div>
         </div>
@@ -135,9 +135,9 @@ export default async function LoginPage() {
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-200">
-                Bangladesh Police
+                AutoGeneration LTD
               </p>
-              <p className="text-sm font-medium">Vehicle Tracking Platform</p>
+              <p className="text-sm font-medium">CMS Portal</p>
             </div>
           </div>
 

@@ -95,9 +95,9 @@ function Brand() {
       </div>
       <div className="min-w-0">
         <p className="truncate text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-200">
-          Bangladesh Police
+          AutoGeneration LTD
         </p>
-        <p className="mt-0.5 truncate text-sm font-semibold text-white">Vehicle Owner Portal</p>
+        <p className="mt-0.5 truncate text-sm font-semibold text-white">CMS Portal</p>
       </div>
     </div>
   )
@@ -185,7 +185,7 @@ function MobileSidebar({ user }: { user: AuthUser }) {
         <SheetHeader className="border-b border-white/10 px-5 py-5 text-left">
           <SheetTitle className="sr-only">Vehicle owner navigation</SheetTitle>
           <SheetDescription className="sr-only">
-            National Vehicle Tracking Platform vehicle owner workspace
+            AutoGeneration LTD CMS Portal vehicle owner workspace
           </SheetDescription>
           <Brand />
         </SheetHeader>
@@ -211,7 +211,7 @@ export function OwnerShell({ user, children }: OwnerShellProps) {
             <MobileSidebar user={user} />
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-muted-foreground">Vehicle Owner</p>
-              <p className="truncate text-sm font-semibold text-foreground">National Vehicle Services</p>
+              <p className="truncate text-sm font-semibold text-foreground">AutoGeneration LTD CMS Portal</p>
             </div>
             <Badge variant="outline" className="hidden border-emerald-200 bg-emerald-50 text-emerald-700 sm:inline-flex">
               <span className="mr-1.5 size-1.5 rounded-full bg-emerald-500" /> Secure session

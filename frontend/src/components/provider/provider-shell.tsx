@@ -144,9 +144,9 @@ function Brand() {
       </div>
       <div className="min-w-0">
         <p className="truncate text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-200">
-          Bangladesh Police
+          AutoGeneration LTD
         </p>
-        <p className="mt-0.5 truncate text-sm font-semibold text-white">VTS Provider Gateway</p>
+        <p className="mt-0.5 truncate text-sm font-semibold text-white">CMS Portal</p>
       </div>
     </div>
   )
@@ -265,7 +265,7 @@ function MobileSidebar({ user }: { user: AuthUser }) {
         <SheetHeader className="border-b border-white/10 px-5 py-5 text-left">
           <SheetTitle className="sr-only">VTS provider navigation</SheetTitle>
           <SheetDescription className="sr-only">
-            National Vehicle Tracking Platform provider workspace
+            AutoGeneration LTD CMS Portal provider workspace
           </SheetDescription>
           <Brand />
         </SheetHeader>
@@ -294,7 +294,7 @@ export function ProviderShell({ user, children }: ProviderShellProps) {
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-muted-foreground">VTS Provider</p>
               <p className="truncate text-sm font-semibold text-foreground">
-                National Integration Gateway
+                AutoGeneration LTD CMS Portal
               </p>
             </div>
             <Badge

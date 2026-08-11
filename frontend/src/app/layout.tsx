@@ -23,8 +23,7 @@ export const metadata: Metadata = {
     default: env.appName,
     template: `%s | ${env.appName}`,
   },
-  description:
-    "Secure national vehicle monitoring and administration platform for Bangladesh Police.",
+  description: "AutoGeneration LTD CMS Portal for vehicle operations and administration.",
 }
 
 export default function RootLayout({

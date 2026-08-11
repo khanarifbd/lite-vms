@@ -48,9 +48,9 @@ export default async function DashboardPage() {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800">
-                Bangladesh Police
+                AutoGeneration LTD
               </p>
-              <h1 className="font-semibold">National Vehicle Tracking Platform</h1>
+              <h1 className="font-semibold">CMS Portal</h1>
             </div>
           </div>
           <LogoutButton />
