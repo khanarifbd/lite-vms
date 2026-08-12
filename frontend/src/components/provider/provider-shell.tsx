@@ -77,7 +77,7 @@ const navigation: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { label: "Dashboard", href: "/provider/dashboard", icon: Gauge },
       {
-        label: "Company application",
+        label: "Company information",
         href: "/provider/application",
         icon: FileCheck2,
         adminOnly: true,
@@ -171,7 +171,7 @@ function Navigation({ user, mobile = false }: { user: AuthUser; mobile?: boolean
               const adminAllowed =
                 !item.adminOnly ||
                 isAdmin ||
-                (item.label === "Company application" && isApplicant)
+                (item.href === "/provider/application" && isApplicant)
               const allowed = roleAllowed && adminAllowed
 
               if (!item.href || !allowed) {

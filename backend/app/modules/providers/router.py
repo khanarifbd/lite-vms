@@ -56,9 +56,7 @@ def request_agent(request: Request) -> str | None:
 
 def can_manage_all_providers(user: User) -> bool:
     role_codes = set(getattr(user, "_role_codes", set()))
-    return bool(
-        role_codes.intersection({UserRole.SUPER_ADMIN.value, UserRole.POLICE_ADMIN.value})
-    )
+    return bool(role_codes.intersection({UserRole.SUPER_ADMIN.value, UserRole.POLICE_ADMIN.value}))
 
 
 async def ensure_provider_access(user: User, provider: VTSProvider) -> None:
@@ -267,13 +265,17 @@ async def update_provider_application(
     if provider is None:
         raise HTTPException(status_code=404, detail="VTS application not found")
     await ensure_provider_access(current_user, provider)
-    if not can_manage_all_providers(current_user) and provider.status not in {
+    is_platform_admin = can_manage_all_providers(current_user)
+    original_status = provider.status
+    is_direct_provider_update = not is_platform_admin and original_status == ProviderStatus.APPROVED
+    if not is_platform_admin and original_status not in {
         ProviderStatus.PENDING,
+        ProviderStatus.APPROVED,
         ProviderStatus.REJECTED,
     }:
         raise HTTPException(
             status_code=409,
-            detail="The application cannot be edited in its current status",
+            detail="The provider information cannot be edited in its current status",
         )
 
     documents = payload.documents
@@ -303,28 +305,67 @@ async def update_provider_application(
                 provider_id=provider.id,
                 ip_addresses=allowed_ips,
             )
-        provider.status = ProviderStatus.PENDING
-        provider.submitted_at = datetime.now(UTC)
-        provider.reviewed_by_id = None
-        provider.reviewed_at = None
-        provider.review_notes = None
+        now = datetime.now(UTC)
         tenant = await session.get(Tenant, provider.tenant_id)
         organization = await session.get(Organization, provider.root_organization_id)
-        if tenant:
-            tenant.status = TenantStatus.PENDING
-        if organization:
-            organization.status = OrganizationStatus.PENDING
+
+        if tenant is not None:
+            tenant.name = provider.name
+        if organization is not None:
+            organization.name_en = provider.name
+            organization.registration_number = provider.company_registration_number
+
+        if is_direct_provider_update:
+            if documents is not None:
+                active_documents = list(
+                    await session.scalars(
+                        select(VTSProviderDocument).where(
+                            VTSProviderDocument.provider_id == provider.id,
+                            VTSProviderDocument.is_active.is_(True),
+                        )
+                    )
+                )
+                for document in active_documents:
+                    document.status = ProviderDocumentStatus.VERIFIED
+                    document.verified_by_id = None
+                    document.verified_at = now
+                    document.review_notes = (
+                        "Updated directly by an approved VTS provider; "
+                        "no additional approval required"
+                    )
+            if tenant is not None:
+                tenant.status = TenantStatus.ACTIVE
+            if organization is not None:
+                organization.status = OrganizationStatus.ACTIVE
+            audit_action = "vts_provider.profile_updated"
+        else:
+            provider.status = ProviderStatus.PENDING
+            provider.submitted_at = now
+            provider.reviewed_by_id = None
+            provider.reviewed_at = None
+            provider.review_notes = None
+            if tenant is not None:
+                tenant.status = TenantStatus.PENDING
+            if organization is not None:
+                organization.status = OrganizationStatus.PENDING
+            audit_action = "vts_provider.application_updated"
+
         await write_audit_log(
             session,
             tenant_id=provider.tenant_id,
             actor_user_id=current_user.id,
             actor_organization_id=provider.root_organization_id,
-            action="vts_provider.application_updated",
+            action=audit_action,
             resource_type="vts_provider",
             resource_public_id=provider.id,
             ip_address=request_ip(request),
             user_agent=request_agent(request),
-            new_values=payload.model_dump(exclude_unset=True, mode="json"),
+            previous_values={"status": original_status.value},
+            new_values={
+                **payload.model_dump(exclude_unset=True, mode="json"),
+                "status": provider.status.value,
+                "approval_required": not is_direct_provider_update,
+            },
         )
         await session.commit()
     except (ValueError, IntegrityError) as exc:

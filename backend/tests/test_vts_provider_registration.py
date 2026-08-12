@@ -97,6 +97,7 @@ def registration_payload(*, suffix: str = "001") -> dict[str, object]:
             {
                 "document_type": "btrc_license",
                 "document_number": f"BTRC-VTS-2026-{suffix}",
+                "storage_key": f"providers/test/{suffix}/btrc-license.pdf",
                 "file_name": "btrc-license.pdf",
                 "file_url": "https://files.example/btrc-license.pdf",
                 "expires_at": None,
@@ -104,6 +105,7 @@ def registration_payload(*, suffix: str = "001") -> dict[str, object]:
             {
                 "document_type": "trade_license",
                 "document_number": f"TRAD-DHK-2026-{suffix}",
+                "storage_key": f"providers/test/{suffix}/trade-license.pdf",
                 "file_name": "trade-license.pdf",
                 "file_url": "https://files.example/trade-license.pdf",
                 "expires_at": None,
@@ -223,6 +225,41 @@ async def test_user_signup_then_provider_application_review_and_approval(
     assert approved.status_code == 200, approved.text
     assert approved.json()["status"] == "approved"
     assert all(document["status"] == "verified" for document in approved.json()["documents"])
+
+    approved_reviewed_at = approved.json()["reviewed_at"]
+    direct_update = await client.patch(
+        f"/api/v1/providers/{provider_id}",
+        headers=applicant_headers,
+        json={
+            "trade_name": "ABC VTS Direct Update",
+            "allowed_server_ips": ["203.0.113.20"],
+            "documents": [
+                {
+                    "document_type": "btrc_license",
+                    "document_number": "BTRC-VTS-2026-001",
+                    "storage_key": "providers/test/001/btrc-license-v2.pdf",
+                    "file_name": "btrc-license-v2.pdf",
+                    "expires_at": None,
+                },
+                {
+                    "document_type": "trade_license",
+                    "document_number": "TRAD-DHK-2026-001",
+                    "storage_key": "providers/test/001/trade-license-v2.pdf",
+                    "file_name": "trade-license-v2.pdf",
+                    "expires_at": None,
+                },
+            ],
+        },
+    )
+    assert direct_update.status_code == 200, direct_update.text
+    updated = direct_update.json()
+    assert updated["status"] == "approved"
+    assert updated["trade_name"] == "ABC VTS Direct Update"
+    assert updated["allowed_server_ips"] == ["203.0.113.20"]
+    assert updated["reviewed_at"] == approved_reviewed_at
+    assert updated["review_notes"] == "Documents verified"
+    assert all(document["version"] == 2 for document in updated["documents"])
+    assert all(document["status"] == "verified" for document in updated["documents"])
 
 
 @pytest.mark.asyncio

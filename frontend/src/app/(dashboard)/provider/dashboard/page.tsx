@@ -143,7 +143,10 @@ export default async function ProviderDashboardPage() {
 
   const status = statusCopy[application.status]
   const approved = application.status === "approved"
-  const editable = application.status === "pending" || application.status === "rejected"
+  const editable =
+    application.status === "pending" ||
+    application.status === "approved" ||
+    application.status === "rejected"
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -169,7 +172,12 @@ export default async function ProviderDashboardPage() {
               {canManageApplication ? (
                 <Button asChild variant="secondary">
                   <Link href="/provider/application">
-                    {editable ? "Review application" : "View application"} <ArrowRight />
+                    {approved
+                      ? "Update company information"
+                      : editable
+                        ? "Review application"
+                        : "View application"}{" "}
+                    <ArrowRight />
                   </Link>
                 </Button>
               ) : null}

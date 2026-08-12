@@ -200,8 +200,12 @@ export function ProviderApplicationForm({
   application: ProviderApplication | null
 }) {
   const router = useRouter()
+  const isApprovedUpdate = application?.status === "approved"
   const editable =
-    !application || application.status === "pending" || application.status === "rejected"
+    !application ||
+    application.status === "pending" ||
+    application.status === "rejected" ||
+    isApprovedUpdate
   const [btrcFile, setBtrcFile] = useState<File | null>(null)
   const [tradeFile, setTradeFile] = useState<File | null>(null)
   const {
@@ -328,9 +332,18 @@ export function ProviderApplicationForm({
   const onSubmit = async (values: FormValues) => {
     try {
       await mutation.mutateAsync(values)
-      toast.success(application ? "Application updated" : "Application submitted", {
-        description: "The provider application is now in the national review queue.",
-      })
+      toast.success(
+        isApprovedUpdate
+          ? "Company information updated"
+          : application
+            ? "Application updated"
+            : "Application submitted",
+        {
+          description: isApprovedUpdate
+            ? "Your changes were saved immediately. No additional approval is required."
+            : "The provider application is now in the national review queue.",
+        }
+      )
       router.replace("/provider/dashboard")
       router.refresh()
     } catch (error) {
@@ -345,12 +358,20 @@ export function ProviderApplicationForm({
 
   return (
     <form className="space-y-6" onSubmit={handleSubmit(onSubmit)} noValidate>
-      {!editable ? (
+      {isApprovedUpdate ? (
+        <Alert className="border-emerald-200 bg-emerald-50 text-emerald-950">
+          <CheckCircle2 />
+          <AlertTitle>Company information is editable</AlertTitle>
+          <AlertDescription>
+            Changes are saved immediately and do not require additional approval.
+          </AlertDescription>
+        </Alert>
+      ) : !editable ? (
         <Alert>
           <CheckCircle2 />
           <AlertTitle>Application is read-only</AlertTitle>
           <AlertDescription>
-            Applications cannot be edited while under review, approved, or suspended.
+            Applications cannot be edited while under review or suspended.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -480,7 +501,9 @@ export function ProviderApplicationForm({
           <label className="flex items-start gap-3 text-sm leading-6">
             <input type="checkbox" className="mt-1 size-4 accent-emerald-700" disabled={!editable} {...register("declarationAccepted")} />
             <span>
-              I declare that the submitted company, licence, contact, technical, and document information is accurate and may be verified by Bangladesh Police.
+              {isApprovedUpdate
+                ? "I confirm that the updated company, licence, contact, technical, and document information is accurate."
+                : "I declare that the submitted company, licence, contact, technical, and document information is accurate and may be verified by Bangladesh Police."}
             </span>
           </label>
         </CardContent>
@@ -495,7 +518,11 @@ export function ProviderApplicationForm({
 
       {errors.root ? (
         <Alert variant="destructive">
-          <AlertTitle>Application could not be submitted</AlertTitle>
+          <AlertTitle>
+            {isApprovedUpdate
+              ? "Company information could not be saved"
+              : "Application could not be submitted"}
+          </AlertTitle>
           <AlertDescription>{errors.root.message}</AlertDescription>
         </Alert>
       ) : null}
@@ -504,7 +531,15 @@ export function ProviderApplicationForm({
         <div className="sticky bottom-4 z-10 flex justify-end rounded-2xl border bg-white/95 p-4 shadow-xl backdrop-blur">
           <Button type="submit" className="min-w-48 bg-emerald-800 text-white hover:bg-emerald-900" disabled={loading}>
             {loading ? <Loader2 className="animate-spin" /> : <Save />}
-            {loading ? "Uploading and submitting..." : application ? "Update and resubmit" : "Submit for approval"}
+            {loading
+              ? isApprovedUpdate
+                ? "Saving changes..."
+                : "Uploading and submitting..."
+              : isApprovedUpdate
+                ? "Save changes"
+                : application
+                  ? "Update and resubmit"
+                  : "Submit for approval"}
           </Button>
         </div>
       ) : null}
