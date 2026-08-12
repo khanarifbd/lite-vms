@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from reportlab.pdfbase.pdfmetrics import stringWidth
 
 from app.common.enums import VehicleVerificationStatus
 from app.modules.vehicles import provider_registration_router
@@ -10,7 +11,10 @@ from app.modules.vehicles.provider_registration_router import (
     PROVIDER_VEHICLE_EDITABLE_STATUSES,
     PROVIDER_VEHICLE_SUBMITTABLE_STATUSES,
     certificate_owner_name,
+    certificate_provider,
     certificate_readiness,
+    fitted_font_size,
+    wrapped_text_lines,
 )
 from app.modules.vehicles.provider_registration_schema import ProviderVehicleRegistrationUpdate
 
@@ -109,3 +113,62 @@ def test_certificate_falls_back_to_linked_owner_for_existing_vehicle() -> None:
     owner = SimpleNamespace(name="Portal Account Owner")
 
     assert certificate_owner_name(vehicle, owner) == "Portal Account Owner"
+
+
+def test_long_owner_name_font_stays_inside_value_column() -> None:
+    owner_name = "20101815-Hanif KTC Paribahan(Corporate 1)"
+    maximum_width = 132.0
+
+    font_size = fitted_font_size(
+        owner_name,
+        font_name="Helvetica-Bold",
+        maximum_size=8.3,
+        minimum_size=4.3,
+        maximum_width=maximum_width,
+    )
+
+    assert stringWidth(owner_name, "Helvetica-Bold", font_size) <= maximum_width
+
+
+def test_provider_legal_name_statement_wraps_within_certificate_width() -> None:
+    statement = (
+        "GPS tracking device installed by Bangladesh National Vehicle Tracking Services Limited, "
+        "a BTRC Licensed Vehicle Tracking Service Provider."
+    )
+    lines = wrapped_text_lines(
+        statement,
+        font_name="Helvetica",
+        font_size=8.5,
+        maximum_width=400,
+    )
+
+    assert len(lines) > 1
+    assert all(stringWidth(line, "Helvetica", 8.5) <= 400 for line in lines)
+
+
+@pytest.mark.asyncio
+async def test_certificate_uses_the_issuing_provider_not_current_viewer(monkeypatch) -> None:
+    issuer = SimpleNamespace(name="Issuing VTS Legal Company")
+    current_viewer_provider = SimpleNamespace(name="Another VTS Company")
+    vehicle = SimpleNamespace(
+        certificate_generated_by_user_id=42,
+        created_by_provider_id=None,
+    )
+    session = AsyncMock()
+
+    async def issuing_provider_for_user(*args, **kwargs):
+        return issuer
+
+    monkeypatch.setattr(
+        provider_registration_router,
+        "get_provider_for_user",
+        issuing_provider_for_user,
+    )
+
+    provider = await certificate_provider(
+        session,
+        vehicle,
+        fallback=current_viewer_provider,
+    )
+
+    assert provider is issuer

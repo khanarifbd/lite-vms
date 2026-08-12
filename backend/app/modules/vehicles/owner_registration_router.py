@@ -30,6 +30,7 @@ from app.modules.vehicles.provider_registration_schema import (
 from app.modules.vehicles.provider_registration_router import (
     certificate_payload,
     certificate_pdf,
+    certificate_provider,
     certificate_readiness,
 )
 from app.modules.vehicles.router import find_identity_conflict
@@ -408,7 +409,10 @@ async def download_owner_vehicle_certificate(
     vehicle = await require_owner_vehicle(session, owner=owner, vehicle_id=vehicle_id)
     if not vehicle.certificate_number:
         raise HTTPException(status_code=404, detail="Certificate has not been issued")
-    pdf = certificate_pdf(vehicle, owner)
+    provider = await certificate_provider(session, vehicle)
+    if provider is None:
+        raise HTTPException(status_code=409, detail="Certificate VTS provider not found")
+    pdf = certificate_pdf(vehicle, owner, provider.name)
     filename = f"{vehicle.certificate_number}.pdf"
     return StreamingResponse(
         pdf,

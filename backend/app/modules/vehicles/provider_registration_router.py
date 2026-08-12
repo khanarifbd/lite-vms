@@ -14,6 +14,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -33,6 +34,7 @@ from app.modules.documents.model import VehicleDocument
 from app.modules.owners.model import VehicleOwner
 from app.modules.owners.service import get_owner_username
 from app.core.config import settings
+from app.modules.providers.model import VTSProvider
 from app.modules.providers.service import get_provider_for_user
 from app.modules.qr_verification.model import VehicleQRToken
 from app.modules.settings.service import auto_approve_vehicle
@@ -110,11 +112,65 @@ def certificate_owner_name(vehicle: Vehicle, owner: VehicleOwner) -> str:
     return registered_owner_name or owner.name or "Not recorded"
 
 
+def fitted_font_size(
+    text: str,
+    *,
+    font_name: str,
+    maximum_size: float,
+    minimum_size: float,
+    maximum_width: float,
+) -> float:
+    font_size = maximum_size
+    while font_size > minimum_size and stringWidth(text, font_name, font_size) > maximum_width:
+        font_size = max(minimum_size, font_size - 0.25)
+    return font_size
+
+
+def wrapped_text_lines(
+    text: str,
+    *,
+    font_name: str,
+    font_size: float,
+    maximum_width: float,
+) -> list[str]:
+    words = text.split()
+    if not words:
+        return []
+    lines: list[str] = []
+    current = words[0]
+    for word in words[1:]:
+        candidate = f"{current} {word}"
+        if stringWidth(candidate, font_name, font_size) <= maximum_width:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+    lines.append(current)
+    return lines
+
+
+async def certificate_provider(
+    session: AsyncSession,
+    vehicle: Vehicle,
+    *,
+    fallback: VTSProvider | None = None,
+) -> VTSProvider | None:
+    if vehicle.certificate_generated_by_user_id is not None:
+        provider = await get_provider_for_user(session, vehicle.certificate_generated_by_user_id)
+        if provider is not None:
+            return provider
+    if vehicle.created_by_provider_id is not None:
+        provider = await session.get(VTSProvider, vehicle.created_by_provider_id)
+        if provider is not None:
+            return provider
+    return fallback
+
+
 CERTIFICATE_ASSET_DIR = Path(__file__).resolve().parents[2] / "assets" / "certificate_template"
 
 
-def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner) -> BytesIO:
-    """Render the branded, data-driven Go Max compliance certificate from the Figma template."""
+def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner, provider_legal_name: str) -> BytesIO:
+    """Render the branded, data-driven VTS compliance certificate from the Figma template."""
     if not vehicle.certificate_number or not vehicle.certificate_issued_at or not vehicle.certificate_expires_at:
         raise ValueError("Certificate has not been issued")
 
@@ -156,7 +212,14 @@ def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner) -> BytesIO:
             page.setFont("Helvetica", x(16))
             page.drawString(x(left + 44), y(row_y + 31), label)
             page.setFillColor(value_color)
-            page.setFont("Helvetica-Bold", x(19))
+            value_font_size = fitted_font_size(
+                value,
+                font_name="Helvetica-Bold",
+                maximum_size=x(19),
+                minimum_size=x(10),
+                maximum_width=x(card_width - 259),
+            )
+            page.setFont("Helvetica-Bold", value_font_size)
             page.drawRightString(x(left + card_width - 44), y(row_y + 31), value)
 
     # Figma certificate frame background, pattern and printed border.
@@ -173,8 +236,16 @@ def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner) -> BytesIO:
     page.setFillColor(colors.HexColor("#231f20"))
     page.setFont("Helvetica", x(18))
     page.drawCentredString(width / 2, y(205), "AUTO GENERATION LIMITED.")
-    page.setFont("Helvetica-Bold", x(24))
-    page.drawCentredString(width / 2, y(242), "Go Max Tracker")
+    legal_name = provider_legal_name.strip() or "VTS Provider"
+    legal_name_font_size = fitted_font_size(
+        legal_name,
+        font_name="Helvetica-Bold",
+        maximum_size=x(24),
+        minimum_size=x(11),
+        maximum_width=x(620),
+    )
+    page.setFont("Helvetica-Bold", legal_name_font_size)
+    page.drawCentredString(width / 2, y(242), legal_name)
     page.setFont("Times-Roman", x(55))
     page.drawCentredString(width / 2, y(315), "GPS TRACKER COMPLIANCE")
     page.drawCentredString(width / 2, y(378), "CERTIFICATE")
@@ -195,15 +266,30 @@ def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner) -> BytesIO:
 
     page.setFillColor(colors.Color(35 / 255, 31 / 255, 32 / 255, alpha=0.72))
     page.setFont("Helvetica", x(20))
-    statement = [
-        "This is to clarify that the vehicle described below has been equipped with a genuine, active and",
-        "fully operational GPS tracking device installed by Go Max Tracker, a product of Auto Generation Limited,",
-        "a BTRC Licensed Vehicle Tracking Service (VTS) Provider.",
-        "",
-        "The certificate confirms that the installed GPS tracking device is functional and has been",
-        "installed in accordance with applicable GPS tracking requirements and relevant directives issued",
-        "by the Bangladesh Road Transport Authority (BRTA), where applicable.",
+    statement_paragraphs = [
+        (
+            "This is to clarify that the vehicle described below has been equipped with a genuine, "
+            f"active and fully operational GPS tracking device installed by {legal_name}, a BTRC "
+            "Licensed Vehicle Tracking Service (VTS) Provider."
+        ),
+        (
+            "The certificate confirms that the installed GPS tracking device is functional and has "
+            "been installed in accordance with applicable GPS tracking requirements and relevant "
+            "directives issued by the Bangladesh Road Transport Authority (BRTA), where applicable."
+        ),
     ]
+    statement: list[str] = []
+    for paragraph in statement_paragraphs:
+        if statement:
+            statement.append("")
+        statement.extend(
+            wrapped_text_lines(
+                paragraph,
+                font_name="Helvetica",
+                font_size=x(20),
+                maximum_width=x(920),
+            )
+        )
     for index, line in enumerate(statement):
         page.drawCentredString(width / 2, y(560 + index * 30), line)
 
@@ -620,13 +706,16 @@ async def download_provider_vehicle_certificate(
     actor: Annotated[User, Depends(require_roles(*PROVIDER_VEHICLE_READ_ROLES))],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> StreamingResponse:
-    vehicle, _ = await get_provider_vehicle(session, actor=actor, vehicle_id=vehicle_id)
+    vehicle, provider = await get_provider_vehicle(session, actor=actor, vehicle_id=vehicle_id)
     if not vehicle.certificate_number:
         raise HTTPException(status_code=404, detail="Certificate has not been issued")
     owner = await session.get(VehicleOwner, vehicle.owner_id)
     if owner is None:
         raise HTTPException(status_code=404, detail="Vehicle owner not found")
-    pdf = certificate_pdf(vehicle, owner)
+    issuer = await certificate_provider(session, vehicle, fallback=provider)
+    if issuer is None:
+        raise HTTPException(status_code=409, detail="Certificate VTS provider not found")
+    pdf = certificate_pdf(vehicle, owner, issuer.name)
     filename = f"{vehicle.certificate_number}.pdf"
     return StreamingResponse(
         pdf,
