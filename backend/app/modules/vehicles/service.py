@@ -171,6 +171,7 @@ async def build_vehicle_read(session: AsyncSession, vehicle: Vehicle) -> Vehicle
         id=vehicle.id,
         registration_number=vehicle.registration_number,
         registration_number_display=vehicle.registration_number_display,
+        registered_owner_name=vehicle.registered_owner_name,
         chassis_number=vehicle.chassis_number,
         engine_number=vehicle.engine_number,
         vehicle_type=vehicle.vehicle_type,

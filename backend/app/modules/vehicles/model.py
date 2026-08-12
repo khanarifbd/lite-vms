@@ -13,6 +13,7 @@ class Vehicle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     registration_number: Mapped[str] = mapped_column(String(80), unique=True, index=True)
     registration_number_display: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    registered_owner_name: Mapped[str] = mapped_column(String(180))
     chassis_number: Mapped[str] = mapped_column(String(120), unique=True, index=True)
     engine_number: Mapped[str | None] = mapped_column(
         String(120), nullable=True, unique=True, index=True

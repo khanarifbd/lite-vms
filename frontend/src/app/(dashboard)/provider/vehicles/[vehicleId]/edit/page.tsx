@@ -16,7 +16,7 @@ import { getProviderVehicleDetails } from "@/lib/provider/vehicle-server"
 export const dynamic = "force-dynamic"
 
 const vehicleManageRoles = [USER_ROLES.vtsAdmin, USER_ROLES.vtsOperator] as const
-const editableStatuses = new Set(["draft", "changes_requested"])
+const editableStatuses = new Set(["draft", "changes_requested", "verified"])
 
 type ProviderVehicleEditPageProps = {
   params: Promise<{ vehicleId: string }>
@@ -66,8 +66,8 @@ export default async function ProviderVehicleEditPage({ params }: ProviderVehicl
             <LockKeyhole />
             <AlertTitle>This vehicle is read-only</AlertTitle>
             <AlertDescription>
-              Only draft registrations or registrations where Bangladesh Police requested changes can
-              be edited. Current status: {vehicle.verification_status.replaceAll("_", " ")}.
+              Only draft, verified, or registrations where Bangladesh Police requested changes can be
+              edited. Current status: {vehicle.verification_status.replaceAll("_", " ")}.
             </AlertDescription>
           </Alert>
           <Button asChild variant="outline">
@@ -116,8 +116,8 @@ export default async function ProviderVehicleEditPage({ params }: ProviderVehicl
             <div>
               <p className="font-semibold">Editing permission</p>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                VTS Admin and VTS Operator accounts can edit drafts and requested corrections. Technical
-                and Viewer accounts keep read-only access to the full details page.
+                VTS Admin and VTS Operator accounts can directly edit verified vehicles, drafts, and
+                requested corrections. Technical and Viewer accounts keep read-only access.
               </p>
             </div>
           </CardContent>

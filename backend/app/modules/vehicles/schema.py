@@ -66,6 +66,7 @@ class VehicleCreate(BaseModel):
 
     registration_number: str = Field(min_length=3, max_length=80)
     registration_number_display: str | None = Field(default=None, max_length=80)
+    registered_owner_name: str | None = Field(default=None, max_length=180)
     chassis_number: str = Field(min_length=3, max_length=120)
     engine_number: str | None = Field(default=None, max_length=120)
     vehicle_type: str = Field(min_length=2, max_length=60)
@@ -106,6 +107,7 @@ class VehicleUpdate(BaseModel):
 
     registration_number: str | None = Field(default=None, min_length=3, max_length=80)
     registration_number_display: str | None = Field(default=None, max_length=80)
+    registered_owner_name: str | None = Field(default=None, max_length=180)
     chassis_number: str | None = Field(default=None, min_length=3, max_length=120)
     engine_number: str | None = Field(default=None, max_length=120)
     vehicle_type: str | None = Field(default=None, min_length=2, max_length=60)
@@ -169,6 +171,7 @@ class VehicleRead(BaseModel):
     id: uuid.UUID
     registration_number: str
     registration_number_display: str | None
+    registered_owner_name: str
     chassis_number: str
     engine_number: str | None
     vehicle_type: str

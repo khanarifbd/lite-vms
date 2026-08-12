@@ -39,7 +39,7 @@ const vehicleReadRoles = [
   USER_ROLES.vtsViewer,
 ] as const
 const vehicleManageRoles = [USER_ROLES.vtsAdmin, USER_ROLES.vtsOperator] as const
-const editableStatuses = new Set(["draft", "changes_requested"])
+const editableStatuses = new Set(["draft", "changes_requested", "verified"])
 
 const dateFormatter = new Intl.DateTimeFormat("en-BD", { dateStyle: "medium" })
 const dateTimeFormatter = new Intl.DateTimeFormat("en-BD", {
@@ -270,6 +270,7 @@ export default async function ProviderVehicleDetailsPage({
             <CardHeader><CardTitle>Owner and provider information</CardTitle></CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <DetailItem label="Vehicle owner" value={vehicle.owner.owner_name} icon={<UserRound className="size-4" />} />
+              <DetailItem label="Registered owner name" value={vehicle.registered_owner_name || vehicle.owner.owner_name} />
               <DetailItem label="Owner code" value={vehicle.owner.owner_code || "Pending"} />
               <DetailItem label="Owner phone" value={vehicle.owner.phone || "Not provided"} />
               <DetailItem label="Owner email" value={vehicle.owner.email || "Not provided"} />

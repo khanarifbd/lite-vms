@@ -169,6 +169,7 @@ async def register_owner_vehicle(
             "owner_id",
             "registration_number",
             "registration_number_display",
+            "registered_owner_name",
             "chassis_number",
             "engine_number",
             "submit_for_review",
@@ -185,6 +186,7 @@ async def register_owner_vehicle(
         registration_number_display=(
             payload.registration_number_display or payload.registration_number.strip()
         ),
+        registered_owner_name=(payload.registered_owner_name or "").strip() or owner.name,
         chassis_number=chassis_number,
         engine_number=engine_number,
         owner_id=owner.id,
@@ -257,12 +259,22 @@ async def update_owner_vehicle_registration(
     changes = payload.model_dump(exclude_unset=True)
     if not changes:
         raise HTTPException(status_code=422, detail="At least one vehicle field is required")
-    for required_field in ("registration_number", "chassis_number", "vehicle_type"):
+    for required_field in (
+        "registration_number",
+        "registered_owner_name",
+        "chassis_number",
+        "vehicle_type",
+    ):
         if required_field in changes and changes[required_field] is None:
             raise HTTPException(
                 status_code=422,
                 detail=f"{required_field.replace('_', ' ').title()} cannot be cleared",
             )
+
+    if "registered_owner_name" in changes:
+        changes["registered_owner_name"] = changes["registered_owner_name"].strip()
+        if not changes["registered_owner_name"]:
+            raise HTTPException(status_code=422, detail="Registered owner name cannot be blank")
 
     if "registration_number" in changes:
         changes["registration_number"] = normalized_registration(

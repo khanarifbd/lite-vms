@@ -23,6 +23,7 @@ export type VehicleDetails = {
   id: string
   registration_number: string
   registration_number_display: string | null
+  registered_owner_name: string
   chassis_number: string
   engine_number: string | null
   vehicle_type: string
@@ -99,6 +100,7 @@ export type VehicleDetails = {
 export type VehicleUpdatePayload = Partial<{
   registration_number: string
   registration_number_display: string | null
+  registered_owner_name: string | null
   chassis_number: string
   engine_number: string | null
   vehicle_type: string

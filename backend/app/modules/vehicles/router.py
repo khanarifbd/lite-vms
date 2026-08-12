@@ -191,6 +191,7 @@ async def create_vehicle(
             "owner_id",
             "registration_number",
             "registration_number_display",
+            "registered_owner_name",
             "chassis_number",
             "engine_number",
             "tracking_setup",
@@ -203,6 +204,7 @@ async def create_vehicle(
         registration_number_display=(
             payload.registration_number_display or payload.registration_number.strip()
         ),
+        registered_owner_name=(payload.registered_owner_name or "").strip() or owner.name,
         chassis_number=chassis_number,
         engine_number=engine_number,
         owner_id=owner.id,
@@ -392,6 +394,12 @@ async def update_vehicle(
     changes = payload.model_dump(exclude_unset=True)
     if not changes:
         return await build_vehicle_read(session, vehicle)
+
+    if "registered_owner_name" in changes:
+        registered_owner_name = (changes["registered_owner_name"] or "").strip()
+        if not registered_owner_name:
+            raise HTTPException(status_code=422, detail="Registered owner name cannot be blank")
+        changes["registered_owner_name"] = registered_owner_name
 
     if changes.get("registration_number"):
         changes["registration_number"] = normalize_bangladesh_registration(

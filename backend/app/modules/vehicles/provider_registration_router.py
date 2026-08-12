@@ -20,8 +20,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import (
-    DocumentStatus,
-    DocumentType,
     OwnerVerificationStatus,
     ProviderStatus,
     UserRole,
@@ -65,53 +63,29 @@ PROVIDER_VEHICLE_READ_ROLES = (
     UserRole.VTS_VIEWER,
 )
 PROVIDER_VEHICLE_MANAGE_ROLES = (UserRole.VTS_ADMIN, UserRole.VTS_OPERATOR)
-PROVIDER_VEHICLE_EDITABLE_STATUSES = {
+PROVIDER_VEHICLE_SUBMITTABLE_STATUSES = {
     VehicleVerificationStatus.DRAFT,
     VehicleVerificationStatus.CHANGES_REQUESTED,
 }
-CERTIFICATE_DOCUMENT_TYPES = (
-    DocumentType.REGISTRATION,
-    DocumentType.FITNESS,
-    DocumentType.TAX_TOKEN,
-    DocumentType.INSURANCE,
-    DocumentType.ROUTE_PERMIT,
-)
+PROVIDER_VEHICLE_EDITABLE_STATUSES = PROVIDER_VEHICLE_SUBMITTABLE_STATUSES | {
+    VehicleVerificationStatus.VERIFIED,
+}
+CERTIFICATE_DOCUMENT_REQUIREMENT = "at least one uploaded vehicle document"
 
 
-async def certificate_readiness(session: AsyncSession, vehicle: Vehicle) -> tuple[list[str], date | None]:
-    documents = list(
-        await session.scalars(
-            select(VehicleDocument).where(
-                VehicleDocument.vehicle_id == vehicle.id,
-                VehicleDocument.is_active.is_(True),
-                VehicleDocument.status != DocumentStatus.REVOKED,
-            )
+async def certificate_readiness(
+    session: AsyncSession, vehicle: Vehicle
+) -> tuple[list[str], date | None]:
+    document_id = await session.scalar(
+        select(VehicleDocument.id)
+        .where(
+            VehicleDocument.vehicle_id == vehicle.id,
+            VehicleDocument.is_active.is_(True),
         )
+        .limit(1)
     )
-    documents_by_type = {document.document_type: document for document in documents}
-    missing = [
-        document_type.value.replace("_", " ")
-        for document_type in CERTIFICATE_DOCUMENT_TYPES
-        if document_type not in documents_by_type
-    ]
-    today = date.today()
-    expiring_documents = [
-        document
-        for document_type, document in documents_by_type.items()
-        if document_type != DocumentType.REGISTRATION
-        and (document.expires_at is None or document.expires_at < today)
-    ]
-    if expiring_documents:
-        missing.extend(
-            f"valid {document.document_type.value.replace('_', ' ')}"
-            for document in expiring_documents
-        )
-    expiry_dates = [
-        document.expires_at
-        for document_type, document in documents_by_type.items()
-        if document_type != DocumentType.REGISTRATION and document.expires_at is not None
-    ]
-    return missing, min(expiry_dates) if expiry_dates else None
+    requirements = [] if document_id is not None else [CERTIFICATE_DOCUMENT_REQUIREMENT]
+    return requirements, None
 
 
 def certificate_payload(vehicle: Vehicle, *, requirements: list[str]) -> dict[str, object]:
@@ -129,6 +103,11 @@ def certificate_payload(vehicle: Vehicle, *, requirements: list[str]) -> dict[st
         "requirements": requirements,
         "can_generate": not requirements,
     }
+
+
+def certificate_owner_name(vehicle: Vehicle, owner: VehicleOwner) -> str:
+    registered_owner_name = (vehicle.registered_owner_name or "").strip()
+    return registered_owner_name or owner.name or "Not recorded"
 
 
 CERTIFICATE_ASSET_DIR = Path(__file__).resolve().parents[2] / "assets" / "certificate_template"
@@ -233,7 +212,7 @@ def certificate_pdf(vehicle: Vehicle, owner: VehicleOwner) -> BytesIO:
     gps_text = "Active"
     gps_color = colors.HexColor("#008200")
     vehicle_rows = [
-        ("Owner Name:", owner.name or "Not recorded", colors.HexColor("#231f20")),
+        ("Owner Name:", certificate_owner_name(vehicle, owner), colors.HexColor("#231f20")),
         ("Registration No.", vehicle.registration_number_display or vehicle.registration_number, colors.HexColor("#231f20")),
         ("Vehicle Type", vehicle.vehicle_type or "Not recorded", colors.HexColor("#231f20")),
         ("Chassis No.", vehicle.chassis_number or "Not recorded", colors.HexColor("#231f20")),
@@ -343,6 +322,7 @@ async def import_gomax_vehicles(
             Vehicle(
                 registration_number=source_identity,
                 registration_number_display=project_name[:80],
+                registered_owner_name=owner.name,
                 chassis_number=source_identity,
                 vehicle_type="Imported",
                 owner_id=owner.id,
@@ -489,6 +469,7 @@ async def register_provider_vehicle(
             "owner_id",
             "registration_number",
             "registration_number_display",
+            "registered_owner_name",
             "chassis_number",
             "engine_number",
             "submit_for_review",
@@ -505,6 +486,7 @@ async def register_provider_vehicle(
         registration_number_display=(
             payload.registration_number_display or payload.registration_number.strip()
         ),
+        registered_owner_name=(payload.registered_owner_name or "").strip() or owner.name,
         chassis_number=chassis_number,
         engine_number=engine_number,
         owner_id=owner.id,
@@ -602,7 +584,7 @@ async def generate_provider_vehicle_certificate(
     if requirements:
         raise HTTPException(
             status_code=422,
-            detail="Certificate requires current documents: " + ", ".join(requirements),
+            detail="Certificate requires at least one uploaded vehicle document",
         )
 
     issued_at = date.today()
@@ -669,19 +651,29 @@ async def update_provider_vehicle(
         raise HTTPException(
             status_code=409,
             detail=(
-                "Only draft vehicles or registrations with requested changes can be edited"
+                "Only draft, verified, or changes-requested vehicles can be edited"
             ),
         )
 
     changes = payload.model_dump(exclude_unset=True)
     if not changes:
         raise HTTPException(status_code=422, detail="At least one vehicle field is required")
-    for required_field in ("registration_number", "chassis_number", "vehicle_type"):
+    for required_field in (
+        "registration_number",
+        "registered_owner_name",
+        "chassis_number",
+        "vehicle_type",
+    ):
         if required_field in changes and changes[required_field] is None:
             raise HTTPException(
                 status_code=422,
                 detail=f"{required_field.replace('_', ' ').title()} cannot be cleared",
             )
+
+    if "registered_owner_name" in changes:
+        changes["registered_owner_name"] = changes["registered_owner_name"].strip()
+        if not changes["registered_owner_name"]:
+            raise HTTPException(status_code=422, detail="Registered owner name cannot be blank")
 
     if "registration_number" in changes:
         changes["registration_number"] = normalized_registration(
@@ -719,11 +711,12 @@ async def update_provider_vehicle(
     for field, value in changes.items():
         setattr(vehicle, field, value)
 
-    action = (
-        "vehicle.registration_correction_saved"
-        if previous_status == VehicleVerificationStatus.CHANGES_REQUESTED
-        else "vehicle.registration_draft_updated"
-    )
+    if previous_status == VehicleVerificationStatus.CHANGES_REQUESTED:
+        action = "vehicle.registration_correction_saved"
+    elif previous_status == VehicleVerificationStatus.VERIFIED:
+        action = "vehicle.registration_verified_updated"
+    else:
+        action = "vehicle.registration_draft_updated"
     try:
         await write_audit_log(
             session,
@@ -765,7 +758,7 @@ async def submit_provider_vehicle(
         actor=actor,
         vehicle_id=vehicle_id,
     )
-    if vehicle.verification_status not in PROVIDER_VEHICLE_EDITABLE_STATUSES:
+    if vehicle.verification_status not in PROVIDER_VEHICLE_SUBMITTABLE_STATUSES:
         raise HTTPException(
             status_code=409,
             detail="Only draft or changes-requested vehicles can be submitted",

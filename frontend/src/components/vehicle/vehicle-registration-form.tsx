@@ -139,13 +139,15 @@ export function VehicleRegistrationForm({ mode, apiBase, registryHref, owners = 
   function buildPayload(data: FormData, submitForReview: boolean): ProviderVehicleRegistrationPayload {
     const ownerId = readText(data, "owner_id")
     const registrationNumber = readText(data, "registration_number")
+    const registeredOwnerName = readText(data, "registered_owner_name")
     const chassisNumber = readText(data, "chassis_number")
     const vehicleType = readText(data, "vehicle_type")
-    if (!ownerId || !registrationNumber || !chassisNumber || !vehicleType) throw new Error("Owner, registration number, chassis number, and vehicle type are required.")
+    if (!ownerId || !registrationNumber || !registeredOwnerName || !chassisNumber || !vehicleType) throw new Error("Owner, registered owner name, registration number, chassis number, and vehicle type are required.")
     return {
       owner_id: ownerId,
       registration_number: registrationNumber,
       registration_number_display: readText(data, "registration_number_display"),
+      registered_owner_name: registeredOwnerName,
       chassis_number: chassisNumber,
       engine_number: readText(data, "engine_number"),
       vehicle_type: vehicleType,
@@ -228,6 +230,7 @@ export function VehicleRegistrationForm({ mode, apiBase, registryHref, owners = 
         </CardContent></Card>
 
         <Card><CardHeader><CardTitle>2. Vehicle identity and basic information</CardTitle></CardHeader><CardContent className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <Field label="Registered owner name" hint="Enter the owner name exactly as shown on the vehicle registration certificate. This name will appear on the vehicle certificate."><Input name="registered_owner_name" required maxLength={180} defaultValue={mode === "owner" ? fixedOwner?.owner_name : ""} disabled={draft !== null} /></Field>
           <Field label="Registration number" hint="Bangladesh registration format; checked globally for duplicates."><Input name="registration_number" required maxLength={80} disabled={draft !== null} /></Field>
           <Field label="Display registration number"><Input name="registration_number_display" maxLength={80} disabled={draft !== null} /></Field>
           <Field label="Chassis number" hint="Normalized and checked globally for duplicates."><Input name="chassis_number" required maxLength={120} disabled={draft !== null} /></Field>

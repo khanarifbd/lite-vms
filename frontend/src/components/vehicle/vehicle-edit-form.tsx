@@ -106,10 +106,11 @@ export function VehicleEditForm({ vehicle, apiBase, detailsBase, mode }: Vehicle
     const registrationNumber = isGoMaxImported
       ? readText(data, "official_registration_number") || vehicle.registration_number
       : readText(data, "registration_number")
+    const registeredOwnerName = readText(data, "registered_owner_name")
     const chassisNumber = readText(data, "chassis_number")
     const vehicleType = readText(data, "vehicle_type")
-    if (!registrationNumber || !chassisNumber || !vehicleType) {
-      throw new Error("Registration number, chassis number, and vehicle type are required.")
+    if (!registrationNumber || !registeredOwnerName || !chassisNumber || !vehicleType) {
+      throw new Error("Registered owner name, registration number, chassis number, and vehicle type are required.")
     }
 
     return {
@@ -117,6 +118,7 @@ export function VehicleEditForm({ vehicle, apiBase, detailsBase, mode }: Vehicle
       registration_number_display: isGoMaxImported
         ? readText(data, "vehicle_display_name")
         : readText(data, "registration_number_display"),
+      registered_owner_name: registeredOwnerName,
       chassis_number: chassisNumber,
       engine_number: readText(data, "engine_number"),
       vehicle_type: vehicleType,
@@ -211,6 +213,7 @@ export function VehicleEditForm({ vehicle, apiBase, detailsBase, mode }: Vehicle
   }
 
   const correctionMode = vehicle.verification_status === "changes_requested"
+  const directUpdateMode = mode === "provider" && vehicle.verification_status === "verified"
 
   return (
     <div className="space-y-5">
@@ -257,6 +260,17 @@ export function VehicleEditForm({ vehicle, apiBase, detailsBase, mode }: Vehicle
         <Card>
           <CardHeader><CardTitle>Identity and basic information</CardTitle></CardHeader>
           <CardContent className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <Field
+              label="Registered owner name"
+              hint="Enter the owner name exactly as shown on the vehicle registration certificate. This name will appear on the vehicle certificate."
+            >
+              <Input
+                name="registered_owner_name"
+                required
+                maxLength={180}
+                defaultValue={vehicle.registered_owner_name || vehicle.owner.owner_name}
+              />
+            </Field>
             {isGoMaxImported ? (
               <>
                 <Field
@@ -356,16 +370,18 @@ export function VehicleEditForm({ vehicle, apiBase, detailsBase, mode }: Vehicle
 
         <div className="flex flex-col gap-3 rounded-2xl border bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-            Saving keeps the current draft or change-request status. Save and resubmit sends the corrected registration back to Bangladesh Police while preserving the previous decision in the audit trail.
+            {directUpdateMode
+              ? "Saving updates this verified vehicle directly and keeps its verified status. The change is recorded in the audit trail."
+              : "Saving keeps the current draft or change-request status. Save and resubmit sends the corrected registration back to Bangladesh Police while preserving the previous decision in the audit trail."}
           </p>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" variant="outline" disabled={pendingMode !== null}>
               {pendingMode === "save" ? <Loader2 className="animate-spin" /> : <Save />} Save changes
             </Button>
-            <Button type="button" disabled={pendingMode !== null} onClick={() => void saveVehicle("resubmit")} className="bg-emerald-800 text-white hover:bg-emerald-900">
+            {!directUpdateMode ? <Button type="button" disabled={pendingMode !== null} onClick={() => void saveVehicle("resubmit")} className="bg-emerald-800 text-white hover:bg-emerald-900">
               {pendingMode === "resubmit" ? <Loader2 className="animate-spin" /> : <Send />}
               {correctionMode ? "Save corrections & resubmit" : "Save & submit for review"}
-            </Button>
+            </Button> : null}
           </div>
         </div>
       </form>

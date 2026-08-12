@@ -2,6 +2,7 @@ export type ProviderVehicleRegistrationPayload = {
   owner_id: string
   registration_number: string
   registration_number_display?: string | null
+  registered_owner_name?: string | null
   chassis_number: string
   engine_number?: string | null
   vehicle_type: string
@@ -35,6 +36,7 @@ export type ProviderVehicleRegistrationResult = {
   id: string
   registration_number: string
   registration_number_display: string | null
+  registered_owner_name: string
   chassis_number: string
   engine_number: string | null
   vehicle_type: string
