@@ -75,9 +75,14 @@ class ProviderMobileOwnerRegister(BaseModel):
     def validate_email(cls, value: str | None) -> str | None:
         return normalize_email(value) if value else None
 
-    @field_validator("registered_address", "district", mode="before")
+    @field_validator(
+        "registered_address",
+        "district",
+        "company_registration_number",
+        mode="before",
+    )
     @classmethod
-    def normalize_optional_location(cls, value: str | None) -> str | None:
+    def normalize_optional_text(cls, value: str | None) -> str | None:
         if value is None:
             return None
         normalized = value.strip()
@@ -95,8 +100,6 @@ class ProviderMobileOwnerRegister(BaseModel):
         if not self.declaration_accepted:
             raise ValueError("The vehicle-owner declaration must be accepted")
         if self.owner_type == OwnerType.COMPANY:
-            if not self.company_registration_number:
-                raise ValueError("Company registration number is required")
             if not self.trade_license_number:
                 raise ValueError("Trade licence number is required")
         return self

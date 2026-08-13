@@ -16,19 +16,36 @@ def test_individual_owner_location_fields_are_optional() -> None:
     assert payload.registered_address is None
 
 
-def test_company_owner_blank_location_fields_are_normalized_to_none() -> None:
+def test_company_owner_optional_fields_can_be_omitted() -> None:
     payload = ProviderMobileOwnerRegister(
         owner_type=OwnerType.COMPANY,
         owner_name="Test Fleet Limited",
         mobile="+8801812345678",
         login_username="test.company",
         contact_name="Fleet Administrator",
-        company_registration_number="RJSC-TEST-001",
+        trade_license_number="TRADE-TEST-001",
+        declaration_accepted=True,
+    )
+
+    assert payload.company_registration_number is None
+    assert payload.district is None
+    assert payload.registered_address is None
+
+
+def test_company_owner_blank_optional_fields_are_normalized_to_none() -> None:
+    payload = ProviderMobileOwnerRegister(
+        owner_type=OwnerType.COMPANY,
+        owner_name="Test Fleet Limited",
+        mobile="+8801812345678",
+        login_username="test.company.blank",
+        contact_name="Fleet Administrator",
+        company_registration_number="   ",
         trade_license_number="TRADE-TEST-001",
         district="   ",
         registered_address="   ",
         declaration_accepted=True,
     )
 
+    assert payload.company_registration_number is None
     assert payload.district is None
     assert payload.registered_address is None
