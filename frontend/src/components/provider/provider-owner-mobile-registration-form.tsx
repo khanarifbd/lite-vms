@@ -1,9 +1,9 @@
 "use client"
 
-import { ArrowLeft, CheckCircle2, Loader2, Search, ShieldCheck } from "lucide-react"
+import { ArrowLeft, CalendarDays, CheckCircle2, Loader2, Search, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { type ChangeEvent, type FormEvent, useState } from "react"
+import { type FormEvent, useRef, useState } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,10 @@ type LookupResult = {
   account_exists: boolean
   current_provider_link_status: string | null
   next_action: string
+}
+
+type DateInputWithPicker = HTMLInputElement & {
+  showPicker?: () => void
 }
 
 async function responseMessage(response: Response, fallback: string) {
@@ -51,26 +55,15 @@ function formatDdMmYyyyInput(value: string) {
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
 }
 
-function handleDateInput(event: ChangeEvent<HTMLInputElement>) {
-  event.currentTarget.value = formatDdMmYyyyInput(event.currentTarget.value)
-}
-
-function optionalIsoDate(data: FormData, key: string, label: string) {
-  const value = text(data, key)
-  if (!value) return null
-
+function ddMmYyyyToIso(value: string) {
   const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value)
-  if (!match) {
-    throw new Error(`${label} must be in DD/MM/YYYY format.`)
-  }
+  if (!match) return null
 
   const [, dayText, monthText, yearText] = match
   const day = Number(dayText)
   const month = Number(monthText)
   const year = Number(yearText)
-  if (year < 1000) {
-    throw new Error(`${label} must be a valid DD/MM/YYYY date.`)
-  }
+  if (year < 1000) return null
 
   const parsed = new Date(Date.UTC(year, month - 1, day))
   if (
@@ -78,26 +71,84 @@ function optionalIsoDate(data: FormData, key: string, label: string) {
     parsed.getUTCMonth() !== month - 1 ||
     parsed.getUTCDate() !== day
   ) {
-    throw new Error(`${label} must be a valid DD/MM/YYYY date.`)
+    return null
   }
 
   return `${yearText}-${monthText}-${dayText}`
 }
 
+function isoToDdMmYyyy(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return ""
+  const [, year, month, day] = match
+  return `${day}/${month}/${year}`
+}
+
+function optionalIsoDate(data: FormData, key: string, label: string) {
+  const value = text(data, key)
+  if (!value) return null
+
+  const isoDate = ddMmYyyyToIso(value)
+  if (!isoDate) {
+    throw new Error(`${label} must be a valid DD/MM/YYYY date.`)
+  }
+  return isoDate
+}
+
 function DdMmYyyyInput({ id, name }: { id: string; name: string }) {
+  const [value, setValue] = useState("")
+  const pickerRef = useRef<HTMLInputElement>(null)
+
+  function openPicker() {
+    const picker = pickerRef.current as DateInputWithPicker | null
+    if (!picker) return
+
+    picker.value = ddMmYyyyToIso(value) || ""
+    if (typeof picker.showPicker === "function") {
+      picker.showPicker()
+    } else {
+      picker.click()
+    }
+  }
+
   return (
-    <Input
-      id={id}
-      name={name}
-      type="text"
-      inputMode="numeric"
-      autoComplete="off"
-      maxLength={10}
-      pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}"
-      placeholder="DD/MM/YYYY"
-      title="Use DD/MM/YYYY, for example 13/08/2026"
-      onChange={handleDateInput}
-    />
+    <div className="relative">
+      <Input
+        id={id}
+        name={name}
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        maxLength={10}
+        pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}"
+        placeholder="DD/MM/YYYY"
+        title="Use DD/MM/YYYY, for example 13/08/2026"
+        value={value}
+        onChange={(event) => setValue(formatDdMmYyyyInput(event.currentTarget.value))}
+        className="pr-11"
+      />
+      <button
+        type="button"
+        onClick={openPicker}
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        aria-label="Open calendar"
+        title="Choose date"
+      >
+        <CalendarDays className="size-4" />
+      </button>
+      <input
+        ref={pickerRef}
+        type="date"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-0 right-0 h-px w-px opacity-0"
+        onChange={(event) => {
+          if (event.currentTarget.value) {
+            setValue(isoToDdMmYyyy(event.currentTarget.value))
+          }
+        }}
+      />
+    </div>
   )
 }
 
