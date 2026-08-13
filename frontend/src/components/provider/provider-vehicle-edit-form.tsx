@@ -1,6 +1,6 @@
 "use client"
 
-import { VehicleEditForm } from "@/components/vehicle/vehicle-edit-form"
+import { ProviderVehicleEditFormV2 } from "@/components/provider/provider-vehicle-edit-form-v2"
 import type { ProviderVehicleDetails } from "@/features/provider/vehicle-detail-types"
 
 type ProviderVehicleEditFormProps = {
@@ -8,12 +8,5 @@ type ProviderVehicleEditFormProps = {
 }
 
 export function ProviderVehicleEditForm({ vehicle }: ProviderVehicleEditFormProps) {
-  return (
-    <VehicleEditForm
-      vehicle={vehicle}
-      apiBase="/api/provider/vehicles"
-      detailsBase="/provider/vehicles"
-      mode="provider"
-    />
-  )
+  return <ProviderVehicleEditFormV2 vehicle={vehicle} />
 }
