@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import DateTime, and_, bindparam, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -91,6 +91,7 @@ def document_status_for_vehicle(
     if days_remaining is not None and days_remaining <= 30:
         return "expiring", days_remaining, []
     return "valid", days_remaining, []
+
 
 def role_codes(actor: User) -> set[str]:
     return set(getattr(actor, "_role_codes", set()))
@@ -289,6 +290,21 @@ def encode_cursor(created_at: datetime, vehicle_id: uuid.UUID) -> str:
     return base64.urlsafe_b64encode(payload.encode()).decode()
 
 
+def cursor_timestamp_parameter(value: datetime):
+    """Bind a cursor timestamp with the timezone shape returned by the database.
+
+    Vehicle timestamp migrations use TIMESTAMP WITH TIME ZONE in PostgreSQL, while
+    the legacy TimestampMixin is inferred as timezone-naive by SQLAlchemy. Explicitly
+    typing the keyset cursor bind prevents asyncpg from receiving an aware datetime
+    through a TIMESTAMP WITHOUT TIME ZONE parameter on page 2 and later.
+    """
+    return bindparam(
+        "vehicle_cursor_created_at",
+        value=value,
+        type_=DateTime(timezone=value.tzinfo is not None),
+    )
+
+
 @router.get("/registry", response_model=VehicleRegistryPage)
 async def vehicle_registry(
     actor: Annotated[User, Depends(require_roles(*REGISTRY_ROLES))],
@@ -354,10 +370,14 @@ async def vehicle_registry(
             cursor_created_at, cursor_id = decode_cursor(cursor)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        cursor_created_at_parameter = cursor_timestamp_parameter(cursor_created_at)
         conditions.append(
             or_(
-                Vehicle.created_at < cursor_created_at,
-                and_(Vehicle.created_at == cursor_created_at, Vehicle.id < cursor_id),
+                Vehicle.created_at < cursor_created_at_parameter,
+                and_(
+                    Vehicle.created_at == cursor_created_at_parameter,
+                    Vehicle.id < cursor_id,
+                ),
             )
         )
 
