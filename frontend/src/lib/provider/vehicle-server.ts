@@ -21,7 +21,16 @@ export async function getProviderVehicles({
   const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1
   const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)))
   const params = new URLSearchParams({ limit: String(safeLimit) })
-  if (cursor) params.set("cursor", cursor)
+
+  // Cursor mode remains available for callers that explicitly provide a cursor.
+  // The provider vehicle portfolio uses page/offset mode so users can see the
+  // current page, total page count, and jump directly between pages.
+  if (cursor) {
+    params.set("cursor", cursor)
+  } else if (safePage > 1) {
+    params.set("offset", String((safePage - 1) * safeLimit))
+  }
+
   if (ownerId) params.set("owner_id", ownerId)
   if (documentStatus) params.set("document_status", documentStatus)
 
