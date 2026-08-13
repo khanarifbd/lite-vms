@@ -1,0 +1,34 @@
+from app.common.enums import OwnerType
+from app.modules.owners.mobile_registration_schema import ProviderMobileOwnerRegister
+
+
+def test_individual_owner_location_fields_are_optional() -> None:
+    payload = ProviderMobileOwnerRegister(
+        owner_type=OwnerType.INDIVIDUAL,
+        owner_name="Test Individual Owner",
+        mobile="+8801712345678",
+        login_username="test.individual",
+        contact_name="Test Individual Owner",
+        declaration_accepted=True,
+    )
+
+    assert payload.district is None
+    assert payload.registered_address is None
+
+
+def test_company_owner_blank_location_fields_are_normalized_to_none() -> None:
+    payload = ProviderMobileOwnerRegister(
+        owner_type=OwnerType.COMPANY,
+        owner_name="Test Fleet Limited",
+        mobile="+8801812345678",
+        login_username="test.company",
+        contact_name="Fleet Administrator",
+        company_registration_number="RJSC-TEST-001",
+        trade_license_number="TRADE-TEST-001",
+        district="   ",
+        registered_address="   ",
+        declaration_accepted=True,
+    )
+
+    assert payload.district is None
+    assert payload.registered_address is None
