@@ -23,11 +23,11 @@ def test_company_owner_optional_fields_can_be_omitted() -> None:
         mobile="+8801812345678",
         login_username="test.company",
         contact_name="Fleet Administrator",
-        trade_license_number="TRADE-TEST-001",
         declaration_accepted=True,
     )
 
     assert payload.company_registration_number is None
+    assert payload.trade_license_number is None
     assert payload.district is None
     assert payload.registered_address is None
 
@@ -40,12 +40,13 @@ def test_company_owner_blank_optional_fields_are_normalized_to_none() -> None:
         login_username="test.company.blank",
         contact_name="Fleet Administrator",
         company_registration_number="   ",
-        trade_license_number="TRADE-TEST-001",
+        trade_license_number="   ",
         district="   ",
         registered_address="   ",
         declaration_accepted=True,
     )
 
     assert payload.company_registration_number is None
+    assert payload.trade_license_number is None
     assert payload.district is None
     assert payload.registered_address is None
