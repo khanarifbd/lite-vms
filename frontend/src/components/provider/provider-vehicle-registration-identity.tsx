@@ -1,3 +1,8 @@
+"use client"
+
+import { useState } from "react"
+
+import { ProviderOwnerCombobox } from "@/components/provider/provider-owner-combobox"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import type { VehicleRegistrationOwnerOption } from "@/components/vehicle/vehicle-registration-form"
@@ -9,15 +14,21 @@ export function ProviderVehicleRegistrationIdentity({ owners, options, disabled,
   disabled: boolean
   optionsLoading: boolean
 }) {
+  const [ownerId, setOwnerId] = useState("")
+
   return <>
     <Card>
       <CardHeader><CardTitle>1. Vehicle owner</CardTitle></CardHeader>
       <CardContent className="grid gap-5 md:grid-cols-2">
         <FormField label="Vehicle owner">
-          <select name="owner_id" required disabled={!owners.length || disabled} defaultValue="" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none disabled:cursor-not-allowed disabled:opacity-50">
-            <option value="" disabled>Select an approved active-linked owner</option>
-            {owners.map((owner) => <option key={owner.id} value={owner.id}>{owner.owner_name} · {owner.owner_code || owner.identity_reference}</option>)}
-          </select>
+          <ProviderOwnerCombobox
+            owners={owners}
+            value={ownerId}
+            onValueChange={setOwnerId}
+            name="owner_id"
+            disabled={!owners.length || disabled}
+            placeholder="Select an approved active-linked owner"
+          />
         </FormField>
         <div className="rounded-2xl border bg-slate-50 p-4 text-sm leading-6 text-muted-foreground">Only approved owners with an active provider connection are available here.</div>
       </CardContent>
