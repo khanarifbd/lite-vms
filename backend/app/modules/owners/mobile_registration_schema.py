@@ -79,6 +79,7 @@ class ProviderMobileOwnerRegister(BaseModel):
         "registered_address",
         "district",
         "company_registration_number",
+        "trade_license_number",
         mode="before",
     )
     @classmethod
@@ -99,9 +100,6 @@ class ProviderMobileOwnerRegister(BaseModel):
             raise ValueError("Mobile number is required")
         if not self.declaration_accepted:
             raise ValueError("The vehicle-owner declaration must be accepted")
-        if self.owner_type == OwnerType.COMPANY:
-            if not self.trade_license_number:
-                raise ValueError("Trade licence number is required")
         return self
 
 

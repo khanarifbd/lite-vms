@@ -335,7 +335,7 @@ export function ProviderOwnerMobileRegistrationForm() {
             ) : (
               <>
                 <div className="space-y-2"><Label htmlFor="company_registration_number">Company registration number</Label><Input id="company_registration_number" name="company_registration_number" /></div>
-                <div className="space-y-2"><Label htmlFor="trade_license_number">Trade licence number *</Label><Input id="trade_license_number" name="trade_license_number" required /></div>
+                <div className="space-y-2"><Label htmlFor="trade_license_number">Trade licence number</Label><Input id="trade_license_number" name="trade_license_number" /></div>
                 <div className="space-y-2"><Label htmlFor="company_type">Company type</Label><Input id="company_type" name="company_type" /></div>
                 <div className="space-y-2"><Label htmlFor="incorporation_date">Incorporation date</Label><DdMmYyyyInput id="incorporation_date" name="incorporation_date" /></div>
                 <div className="space-y-2"><Label htmlFor="authorized_person_name">Authorized person</Label><Input id="authorized_person_name" name="authorized_person_name" /></div>
