@@ -2,16 +2,11 @@ import {
   CarFront,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   Eye,
-  Gauge,
   LockKeyhole,
-  MapPin,
   Plus,
-  RadioTower,
   Search,
   ShieldAlert,
-  UserRound,
 } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
@@ -25,8 +20,8 @@ import { Input } from "@/components/ui/input"
 import type { ProviderVehiclePage } from "@/features/provider/vehicle-types"
 import { USER_ROLES, userHasAnyRole } from "@/lib/auth/roles"
 import { getAuthenticatedUser } from "@/lib/auth/server"
-import { getMyProviderApplication } from "@/lib/provider/server"
 import { getActiveProviderOwners } from "@/lib/provider/owner-server"
+import { getMyProviderApplication } from "@/lib/provider/server"
 import { getProviderVehicles } from "@/lib/provider/vehicle-server"
 
 export const dynamic = "force-dynamic"
@@ -64,11 +59,6 @@ const trackingStatuses = [
 // hidden from the BTS vehicle-management workspace.
 const trackingUiEnabled = false
 
-const dateFormatter = new Intl.DateTimeFormat("en-BD", {
-  dateStyle: "medium",
-  timeStyle: "short",
-})
-
 type SearchValue = string | string[] | undefined
 
 type ProviderVehiclesPageProps = {
@@ -85,14 +75,20 @@ type ProviderVehiclesPageProps = {
   }>
 }
 
-function firstValue(value: SearchValue) {
-  return Array.isArray(value) ? value[0] : value
+type PaginationItem = number | "ellipsis"
+
+type VehicleFilters = {
+  search: string
+  status: string
+  gps: string
+  tracking: string
+  limit: number
+  ownerId: string
+  documentStatus: string
 }
 
-function formatDate(value: string | null) {
-  if (!value) return "No tracking data"
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? "No tracking data" : dateFormatter.format(date)
+function firstValue(value: SearchValue) {
+  return Array.isArray(value) ? value[0] : value
 }
 
 function statusLabel(value: string) {
@@ -108,23 +104,24 @@ function documentStatusLabel(vehicle: ProviderVehiclePage["items"][number]) {
     return `${vehicle.missing_documents.length} document${vehicle.missing_documents.length === 1 ? "" : "s"} required`
   }
   if (vehicle.document_days_remaining === null) return "Not available"
-  if (vehicle.document_days_remaining < 0) return `Expired ${Math.abs(vehicle.document_days_remaining)} days ago`
+  if (vehicle.document_days_remaining < 0) {
+    return `Expired ${Math.abs(vehicle.document_days_remaining)} days ago`
+  }
   return `${vehicle.document_days_remaining} days left`
 }
 
 function shortDate(value: string | null) {
   if (!value) return "—"
   const date = new Date(`${value}T00:00:00`)
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-BD", { dateStyle: "medium" }).format(date)
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(date)
 }
 
-function pageHref(
-  cursor: string,
-  filters: { search: string; status: string; gps: string; tracking: string; limit: number; ownerId: string; documentStatus: string }
-) {
+function pageHref(page: number, filters: VehicleFilters) {
   const params = new URLSearchParams()
-  if (cursor) params.set("cursor", cursor)
-  params.set("limit", String(filters.limit))
+  if (page > 1) params.set("page", String(page))
+  if (filters.limit !== DEFAULT_PAGE_SIZE) params.set("limit", String(filters.limit))
   if (filters.ownerId) params.set("owner", filters.ownerId)
   if (filters.documentStatus) params.set("documents", filters.documentStatus)
   if (filters.search) params.set("search", filters.search)
@@ -133,6 +130,23 @@ function pageHref(
   if (filters.tracking) params.set("tracking", filters.tracking)
   const query = params.toString()
   return query ? `/provider/vehicles?${query}` : "/provider/vehicles"
+}
+
+function paginationItems(currentPage: number, pageCount: number): PaginationItem[] {
+  if (pageCount <= 7) {
+    return Array.from({ length: pageCount }, (_, index) => index + 1)
+  }
+
+  const items: PaginationItem[] = [1]
+  const start = Math.max(2, currentPage - 2)
+  const end = Math.min(pageCount - 1, currentPage + 2)
+
+  if (start > 2) items.push("ellipsis")
+  for (let page = start; page <= end; page += 1) items.push(page)
+  if (end < pageCount - 1) items.push("ellipsis")
+  items.push(pageCount)
+
+  return items
 }
 
 export default async function ProviderVehiclesPage({ searchParams }: ProviderVehiclesPageProps) {
@@ -193,18 +207,22 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
   )
     ? requestedTracking
     : ""
-  const cursor = firstValue(params.cursor) || ""
   const requestedLimit = Number(firstValue(params.limit))
   const limit = pageSizes.includes(requestedLimit as (typeof pageSizes)[number])
     ? requestedLimit
     : DEFAULT_PAGE_SIZE
+  const requestedPage = Number(firstValue(params.page))
+  const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1
 
   let ownerOptions: Awaited<ReturnType<typeof getActiveProviderOwners>>["items"] = []
   try {
-    ownerOptions = (await getActiveProviderOwners()).items.filter((item) => item.link.status === "active")
+    ownerOptions = (await getActiveProviderOwners()).items.filter(
+      (item) => item.link.status === "active"
+    )
   } catch {
     // The vehicle registry remains available when the optional owner filter cannot load.
   }
+
   const requestedOwnerId = firstValue(params.owner) || ""
   const ownerId = ownerOptions.some((item) => item.owner.id === requestedOwnerId)
     ? requestedOwnerId
@@ -218,16 +236,26 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
     ? (requestedDocumentStatus as "required" | "expired" | "expiring")
     : ""
 
+  const filters: VehicleFilters = {
+    search,
+    status,
+    gps,
+    tracking,
+    limit,
+    ownerId,
+    documentStatus,
+  }
+
   let vehicles: ProviderVehiclePage | null = null
   let loadError: string | null = null
   try {
     vehicles = await getProviderVehicles({
+      page,
       limit,
       search,
       status,
       gps,
       tracking,
-      cursor,
       ownerId,
       documentStatus,
     })
@@ -250,20 +278,29 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
     )
   }
 
-  const hasNextPage = Boolean(vehicles.next_cursor)
-  const hasFilters = Boolean(search || status || ownerId || documentStatus || (trackingUiEnabled && (gps || tracking)))
-  const filters = { search, status, gps, tracking, limit, ownerId, documentStatus }
+  const pageCount = Math.max(1, Math.ceil(vehicles.total / limit))
+  if (page > pageCount) redirect(pageHref(pageCount, filters))
+
+  const currentPage = Math.floor(vehicles.offset / vehicles.limit) + 1
+  const hasPreviousPage = currentPage > 1
+  const hasNextPage = currentPage < pageCount
+  const visiblePaginationItems = paginationItems(currentPage, pageCount)
+  const firstRecord = vehicles.total > 0 ? vehicles.offset + 1 : 0
+  const lastRecord = Math.min(vehicles.total, vehicles.offset + vehicles.items.length)
+  const hasFilters = Boolean(
+    search || status || ownerId || documentStatus || (trackingUiEnabled && (gps || tracking))
+  )
   const canManage = userHasAnyRole(user, vehicleManageRoles)
 
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="px-3 py-4 sm:px-5 lg:px-6 lg:py-5">
+      <div className="mx-auto max-w-7xl">
         <Card>
-          <CardHeader className="border-b">
-            <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+          <CardHeader className="space-y-0 border-b px-4 py-4 sm:px-5">
+            <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
               <div>
                 <CardTitle>Vehicle portfolio</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   {vehicles.total} matching vehicle record{vehicles.total === 1 ? "" : "s"} within
                   active provider-owner links.
                 </p>
@@ -272,14 +309,16 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                 <Badge variant="secondary">{vehicles.stats.verified} verified</Badge>
                 {canManage ? (
                   <Button asChild size="sm">
-                    <Link href="/provider/vehicles/register"><Plus /> Register vehicle</Link>
+                    <Link href="/provider/vehicles/register">
+                      <Plus /> Register vehicle
+                    </Link>
                   </Button>
                 ) : null}
               </div>
             </div>
 
             <form
-              className="mt-4 grid gap-3 xl:grid-cols-[minmax(260px,1fr)_210px_220px_170px_150px_auto_auto]"
+              className="mt-3 grid gap-2 xl:grid-cols-[minmax(250px,1fr)_205px_215px_145px_155px_auto_auto]"
               method="get"
             >
               <div className="relative">
@@ -288,7 +327,7 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                   className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                 />
                 <Input
-                  className="pl-9"
+                  className="h-9 pl-9"
                   defaultValue={search}
                   name="search"
                   placeholder="Registration, chassis, engine, brand, or model"
@@ -327,7 +366,9 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                 name="limit"
               >
                 {pageSizes.map((size) => (
-                  <option key={size} value={size}>{size} per page</option>
+                  <option key={size} value={size}>
+                    {size} per page
+                  </option>
                 ))}
               </select>
               <select
@@ -368,63 +409,144 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                   </select>
                 </>
               ) : null}
-              <Button type="submit">Apply</Button>
+              <Button className="h-9" type="submit">
+                Apply
+              </Button>
               {hasFilters ? (
-                <Button asChild type="button" variant="outline">
+                <Button asChild className="h-9" type="button" variant="outline">
                   <Link href="/provider/vehicles">Clear</Link>
                 </Button>
               ) : null}
             </form>
+
+            {vehicles.total > 0 ? (
+              <div className="mt-3 flex flex-col gap-2 border-t pt-3 md:flex-row md:items-center md:justify-between">
+                <p className="text-xs text-muted-foreground sm:text-sm">
+                  Showing <span className="font-medium text-foreground">{firstRecord}–{lastRecord}</span> of{" "}
+                  <span className="font-medium text-foreground">{vehicles.total}</span>
+                  <span className="mx-2 text-slate-300">|</span>
+                  Page <span className="font-medium text-foreground">{currentPage}</span> of{" "}
+                  <span className="font-medium text-foreground">{pageCount}</span>
+                </p>
+                <nav aria-label="Vehicle pagination" className="flex flex-wrap items-center gap-1">
+                  {hasPreviousPage ? (
+                    <Button asChild className="h-8 px-2" size="sm" variant="outline">
+                      <Link href={pageHref(currentPage - 1, filters)} aria-label="Previous page">
+                        <ChevronLeft aria-hidden="true" className="size-4" />
+                        <span className="hidden sm:inline">Previous</span>
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button className="h-8 px-2" disabled size="sm" variant="outline">
+                      <ChevronLeft aria-hidden="true" className="size-4" />
+                      <span className="hidden sm:inline">Previous</span>
+                    </Button>
+                  )}
+
+                  {visiblePaginationItems.map((item, index) =>
+                    item === "ellipsis" ? (
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="flex h-8 min-w-7 items-center justify-center px-1 text-sm text-muted-foreground"
+                      >
+                        …
+                      </span>
+                    ) : item === currentPage ? (
+                      <Button
+                        key={item}
+                        aria-current="page"
+                        className="h-8 min-w-8 px-2"
+                        disabled
+                        size="sm"
+                      >
+                        {item}
+                      </Button>
+                    ) : (
+                      <Button
+                        key={item}
+                        asChild
+                        className="h-8 min-w-8 px-2"
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Link href={pageHref(item, filters)}>{item}</Link>
+                      </Button>
+                    )
+                  )}
+
+                  {hasNextPage ? (
+                    <Button asChild className="h-8 px-2" size="sm" variant="outline">
+                      <Link href={pageHref(currentPage + 1, filters)} aria-label="Next page">
+                        <span className="hidden sm:inline">Next</span>
+                        <ChevronRight aria-hidden="true" className="size-4" />
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button className="h-8 px-2" disabled size="sm" variant="outline">
+                      <span className="hidden sm:inline">Next</span>
+                      <ChevronRight aria-hidden="true" className="size-4" />
+                    </Button>
+                  )}
+                </nav>
+              </div>
+            ) : null}
           </CardHeader>
 
-          <CardContent className="p-4 sm:p-6">
+          <CardContent className="p-3 sm:p-4">
             {vehicles.items.length ? (
-              <div className="overflow-x-auto rounded-xl border">
-                <table className="w-full min-w-[1190px] border-collapse text-sm">
-                  <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <div className="max-h-[60vh] overflow-auto rounded-xl border xl:max-h-[calc(100vh-360px)]">
+                <table className="w-full min-w-[1120px] border-collapse text-xs">
+                  <thead className="sticky top-0 z-10 bg-slate-50 text-left text-[11px] uppercase tracking-wide text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))]">
                     <tr>
-                      <th className="px-4 py-3 font-medium">Vehicle name</th>
-                      <th className="px-4 py-3 font-medium">Owner</th>
-                      <th className="px-4 py-3 font-medium">Registration no.</th>
-                      <th className="px-4 py-3 font-medium">Vehicle type</th>
-                      <th className="px-4 py-3 font-medium">Verification</th>
-                      <th className="px-4 py-3 font-medium">Documents</th>
-                      <th className="px-4 py-3 font-medium">Certificate</th>
-                      <th className="px-4 py-3 font-medium">Status</th>
-                      <th className="px-4 py-3 text-right font-medium">Action</th>
+                      <th className="px-3 py-2 font-medium">Vehicle name</th>
+                      <th className="px-3 py-2 font-medium">Owner</th>
+                      <th className="px-3 py-2 font-medium">Registration no.</th>
+                      <th className="px-3 py-2 font-medium">Vehicle type</th>
+                      <th className="px-3 py-2 font-medium">Verification</th>
+                      <th className="px-3 py-2 font-medium">Documents</th>
+                      <th className="px-3 py-2 font-medium">Certificate</th>
+                      <th className="px-3 py-2 font-medium">Status</th>
+                      <th className="px-3 py-2 text-right font-medium">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {vehicles.items.map((vehicle) => (
                       <tr key={vehicle.id} className="transition-colors hover:bg-slate-50">
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2 align-middle">
                           <Link
                             href={`/provider/vehicles/${vehicle.id}`}
-                            className="block max-w-56 truncate font-semibold hover:text-emerald-800 hover:underline"
+                            className="block max-w-52 truncate text-[13px] font-semibold leading-4 hover:text-emerald-800 hover:underline"
                           >
                             {vehicle.registration_number_display || vehicle.registration_number}
                           </Link>
-                          <p className="mt-0.5 max-w-56 truncate text-xs text-muted-foreground">
+                          <p className="max-w-52 truncate text-[11px] leading-4 text-muted-foreground">
                             {[vehicle.brand, vehicle.model].filter(Boolean).join(" · ") || "Imported vehicle"}
                           </p>
                         </td>
-                        <td className="px-4 py-3">
-                          <p className="max-w-48 truncate font-medium">{vehicle.owner.owner_name}</p>
-                          <p className="mt-0.5 max-w-48 truncate text-xs text-muted-foreground">
+                        <td className="px-3 py-2 align-middle">
+                          <p className="max-w-48 truncate text-[13px] font-medium leading-4">
+                            {vehicle.owner.owner_name}
+                          </p>
+                          <p className="max-w-48 truncate text-[11px] leading-4 text-muted-foreground">
                             {vehicle.owner.owner_code || "Owner code pending"}
                           </p>
                         </td>
-                        <td className="px-4 py-3 font-medium text-slate-700">
+                        <td className="px-3 py-2 align-middle font-medium leading-4 text-slate-700">
                           {vehicle.registration_number.startsWith("GOMAX-")
                             ? "To be updated"
                             : vehicle.registration_number}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">{vehicle.vehicle_type}</td>
-                        <td className="px-4 py-3"><StatusBadge status={vehicle.verification_status} /></td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2 align-middle text-muted-foreground">
+                          {vehicle.vehicle_type}
+                        </td>
+                        <td className="px-3 py-2 align-middle">
+                          <StatusBadge status={vehicle.verification_status} />
+                        </td>
+                        <td className="px-3 py-2 align-middle leading-4">
                           <p
                             className={
-                              vehicle.document_status === "required" || vehicle.document_status === "expired"
+                              vehicle.document_status === "required" ||
+                              vehicle.document_status === "expired"
                                 ? "font-medium text-rose-700"
                                 : vehicle.document_status === "expiring"
                                   ? "font-medium text-amber-700"
@@ -436,24 +558,40 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                           {vehicle.document_status !== "valid" ? (
                             <Link
                               href={`/provider/vehicles/${vehicle.id}/documents`}
-                              className="mt-1 inline-block text-xs font-medium text-emerald-800 hover:underline"
+                              className="text-[11px] font-medium text-emerald-800 hover:underline"
                             >
                               Add documents
                             </Link>
                           ) : null}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2 align-middle leading-4">
                           {vehicle.certificate_number ? (
-                            <><p className="font-medium text-emerald-800">Issued {shortDate(vehicle.certificate_issued_at)}</p><p className="mt-0.5 text-xs text-muted-foreground">Expires {shortDate(vehicle.certificate_expires_at)}</p></>
+                            <>
+                              <p className="font-medium text-emerald-800">
+                                Issued {shortDate(vehicle.certificate_issued_at)}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                Expires {shortDate(vehicle.certificate_expires_at)}
+                              </p>
+                            </>
                           ) : (
-                            <Link href={`/provider/vehicles/${vehicle.id}/certificate`} className="text-xs font-medium text-emerald-800 hover:underline">Not issued</Link>
+                            <Link
+                              href={`/provider/vehicles/${vehicle.id}/certificate`}
+                              className="text-[11px] font-medium text-emerald-800 hover:underline"
+                            >
+                              Not issued
+                            </Link>
                           )}
                         </td>
-                        <td className="px-4 py-3"><Badge variant="outline">{statusLabel(vehicle.status)}</Badge></td>
-                        <td className="px-4 py-3 text-right">
-                          <Button asChild size="sm" variant="outline">
+                        <td className="px-3 py-2 align-middle">
+                          <Badge className="h-6 px-2 text-[11px]" variant="outline">
+                            {statusLabel(vehicle.status)}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2 text-right align-middle">
+                          <Button asChild className="h-7 px-2 text-xs" size="sm" variant="outline">
                             <Link href={`/provider/vehicles/${vehicle.id}`}>
-                              <Eye /> View
+                              <Eye className="size-3.5" /> View
                             </Link>
                           </Button>
                         </td>
@@ -484,28 +622,6 @@ export default async function ProviderVehiclesPage({ searchParams }: ProviderVeh
                 ) : null}
               </div>
             )}
-
-            {vehicles.total > 0 ? (
-              <div className="mt-6 flex flex-col items-center justify-between gap-3 border-t pt-5 sm:flex-row">
-                <p className="text-sm text-muted-foreground">
-                  Showing {vehicles.items.length} record
-                  {vehicles.items.length === 1 ? "" : "s"}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button asChild={hasNextPage} disabled={!hasNextPage} variant="outline">
-                    {hasNextPage ? (
-                      <Link href={pageHref(vehicles.next_cursor || "", filters)}>
-                        Next <ChevronRight aria-hidden="true" />
-                      </Link>
-                    ) : (
-                      <span>
-                        Next <ChevronRight aria-hidden="true" />
-                      </span>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            ) : null}
           </CardContent>
         </Card>
       </div>
