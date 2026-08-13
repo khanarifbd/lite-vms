@@ -56,8 +56,8 @@ class ProviderMobileOwnerRegister(BaseModel):
     trade_license_number: str | None = Field(default=None, max_length=120)
     tin_number: str | None = Field(default=None, max_length=80)
     bin_number: str | None = Field(default=None, max_length=80)
-    registered_address: str = Field(min_length=5, max_length=1000)
-    district: str = Field(min_length=2, max_length=100)
+    registered_address: str | None = Field(default=None, min_length=5, max_length=1000)
+    district: str | None = Field(default=None, min_length=2, max_length=100)
     website_url: str | None = Field(default=None, max_length=500)
     documents: list[OwnerDocumentCreate] = Field(default_factory=list, max_length=20)
     declaration_accepted: bool
@@ -74,6 +74,14 @@ class ProviderMobileOwnerRegister(BaseModel):
     @classmethod
     def validate_email(cls, value: str | None) -> str | None:
         return normalize_email(value) if value else None
+
+    @field_validator("registered_address", "district", mode="before")
+    @classmethod
+    def normalize_optional_location(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
     @field_validator("login_username")
     @classmethod
