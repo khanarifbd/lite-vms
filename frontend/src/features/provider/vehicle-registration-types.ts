@@ -27,6 +27,7 @@ export type ProviderVehicleRegistrationPayload = {
   fitness_expiry_date?: string | null
   tax_token_expiry_date?: string | null
   insurance_expiry_date?: string | null
+  vts_installation_date?: string | null
   notes?: string | null
   default_speed_limit_kph: number
   submit_for_review: boolean
