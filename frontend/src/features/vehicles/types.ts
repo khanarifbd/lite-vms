@@ -52,6 +52,7 @@ export type VehicleDetails = {
   route_permit_number: string | null
   route_permit_area: string | null
   route_permit_expiry_date: string | null
+  vts_installation_date: string | null
   notes: string | null
   owner_id: string
   owner: VehicleOwnerDetails
@@ -125,6 +126,7 @@ export type VehicleUpdatePayload = Partial<{
   fitness_expiry_date: string | null
   tax_token_expiry_date: string | null
   insurance_expiry_date: string | null
+  vts_installation_date: string | null
   notes: string | null
   default_speed_limit_kph: number
 }>

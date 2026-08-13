@@ -1,9 +1,7 @@
 "use client"
 
-import {
-  VehicleRegistrationForm,
-  type VehicleRegistrationOwnerOption,
-} from "@/components/vehicle/vehicle-registration-form"
+import { ProviderVehicleRegistrationFormV2 } from "@/components/provider/provider-vehicle-registration-form-v2"
+import type { VehicleRegistrationOwnerOption } from "@/components/vehicle/vehicle-registration-form"
 
 export type ProviderVehicleOwnerOption = VehicleRegistrationOwnerOption
 
@@ -12,12 +10,5 @@ type ProviderVehicleRegistrationFormProps = {
 }
 
 export function ProviderVehicleRegistrationForm({ owners }: ProviderVehicleRegistrationFormProps) {
-  return (
-    <VehicleRegistrationForm
-      mode="provider"
-      apiBase="/api/provider/vehicles"
-      registryHref="/provider/vehicles"
-      owners={owners}
-    />
-  )
+  return <ProviderVehicleRegistrationFormV2 owners={owners} />
 }
