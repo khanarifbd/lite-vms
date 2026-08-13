@@ -35,6 +35,7 @@ class ProviderVehicleRegistrationCreate(BaseModel):
     fitness_expiry_date: date | None = None
     tax_token_expiry_date: date | None = None
     insurance_expiry_date: date | None = None
+    vts_installation_date: date | None = None
     notes: str | None = Field(default=None, max_length=2000)
     default_speed_limit_kph: float = Field(default=80, gt=0, le=250)
     submit_for_review: bool = True
@@ -70,6 +71,7 @@ class ProviderVehicleRegistrationUpdate(BaseModel):
     fitness_expiry_date: date | None = None
     tax_token_expiry_date: date | None = None
     insurance_expiry_date: date | None = None
+    vts_installation_date: date | None = None
     notes: str | None = Field(default=None, max_length=2000)
     default_speed_limit_kph: float | None = Field(default=None, gt=0, le=250)
 
