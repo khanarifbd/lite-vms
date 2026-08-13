@@ -3,7 +3,7 @@
 import { ArrowLeft, CheckCircle2, Loader2, Search, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { type FormEvent, useState } from "react"
+import { type ChangeEvent, type FormEvent, useState } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -42,6 +42,63 @@ function text(data: FormData, key: string) {
 
 function optional(data: FormData, key: string) {
   return text(data, key) || null
+}
+
+function formatDdMmYyyyInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8)
+  if (digits.length <= 2) return digits
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
+}
+
+function handleDateInput(event: ChangeEvent<HTMLInputElement>) {
+  event.currentTarget.value = formatDdMmYyyyInput(event.currentTarget.value)
+}
+
+function optionalIsoDate(data: FormData, key: string, label: string) {
+  const value = text(data, key)
+  if (!value) return null
+
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value)
+  if (!match) {
+    throw new Error(`${label} must be in DD/MM/YYYY format.`)
+  }
+
+  const [, dayText, monthText, yearText] = match
+  const day = Number(dayText)
+  const month = Number(monthText)
+  const year = Number(yearText)
+  if (year < 1000) {
+    throw new Error(`${label} must be a valid DD/MM/YYYY date.`)
+  }
+
+  const parsed = new Date(Date.UTC(year, month - 1, day))
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    throw new Error(`${label} must be a valid DD/MM/YYYY date.`)
+  }
+
+  return `${yearText}-${monthText}-${dayText}`
+}
+
+function DdMmYyyyInput({ id, name }: { id: string; name: string }) {
+  return (
+    <Input
+      id={id}
+      name={name}
+      type="text"
+      inputMode="numeric"
+      autoComplete="off"
+      maxLength={10}
+      pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}"
+      placeholder="DD/MM/YYYY"
+      title="Use DD/MM/YYYY, for example 13/08/2026"
+      onChange={handleDateInput}
+    />
+  )
 }
 
 export function ProviderOwnerMobileRegistrationForm() {
@@ -106,13 +163,19 @@ export function ProviderOwnerMobileRegistrationForm() {
         login_username: optional(data, "login_username"),
         contact_name: text(data, "contact_name"),
         temporary_password: optional(data, "temporary_password"),
-        date_of_birth: optional(data, "date_of_birth"),
+        date_of_birth:
+          ownerType === "individual"
+            ? optionalIsoDate(data, "date_of_birth", "Date of birth")
+            : null,
         father_name: optional(data, "father_name"),
         mother_name: optional(data, "mother_name"),
         gender: optional(data, "gender"),
         company_registration_number: optional(data, "company_registration_number"),
         company_type: optional(data, "company_type"),
-        incorporation_date: optional(data, "incorporation_date"),
+        incorporation_date:
+          ownerType === "company"
+            ? optionalIsoDate(data, "incorporation_date", "Incorporation date")
+            : null,
         authorized_person_name: optional(data, "authorized_person_name"),
         authorized_person_designation: optional(data, "authorized_person_designation"),
         authorized_person_mobile: optional(data, "authorized_person_mobile"),
@@ -213,17 +276,17 @@ export function ProviderOwnerMobileRegistrationForm() {
             <div className="space-y-2 md:col-span-2"><Label htmlFor="registered_address">Registered address</Label><Textarea id="registered_address" name="registered_address" /></div>
             {ownerType === "individual" ? (
               <>
-                <div className="space-y-2"><Label htmlFor="date_of_birth">Date of birth</Label><Input id="date_of_birth" name="date_of_birth" type="date" /></div>
+                <div className="space-y-2"><Label htmlFor="date_of_birth">Date of birth</Label><DdMmYyyyInput id="date_of_birth" name="date_of_birth" /></div>
                 <div className="space-y-2"><Label htmlFor="gender">Gender</Label><Input id="gender" name="gender" /></div>
                 <div className="space-y-2"><Label htmlFor="father_name">Father&apos;s name</Label><Input id="father_name" name="father_name" /></div>
                 <div className="space-y-2"><Label htmlFor="mother_name">Mother&apos;s name</Label><Input id="mother_name" name="mother_name" /></div>
               </>
             ) : (
               <>
-                <div className="space-y-2"><Label htmlFor="company_registration_number">Company registration number *</Label><Input id="company_registration_number" name="company_registration_number" required /></div>
+                <div className="space-y-2"><Label htmlFor="company_registration_number">Company registration number</Label><Input id="company_registration_number" name="company_registration_number" /></div>
                 <div className="space-y-2"><Label htmlFor="trade_license_number">Trade licence number *</Label><Input id="trade_license_number" name="trade_license_number" required /></div>
                 <div className="space-y-2"><Label htmlFor="company_type">Company type</Label><Input id="company_type" name="company_type" /></div>
-                <div className="space-y-2"><Label htmlFor="incorporation_date">Incorporation date</Label><Input id="incorporation_date" name="incorporation_date" type="date" /></div>
+                <div className="space-y-2"><Label htmlFor="incorporation_date">Incorporation date</Label><DdMmYyyyInput id="incorporation_date" name="incorporation_date" /></div>
                 <div className="space-y-2"><Label htmlFor="authorized_person_name">Authorized person</Label><Input id="authorized_person_name" name="authorized_person_name" /></div>
                 <div className="space-y-2"><Label htmlFor="authorized_person_mobile">Authorized person mobile</Label><Input id="authorized_person_mobile" name="authorized_person_mobile" type="tel" /></div>
               </>
