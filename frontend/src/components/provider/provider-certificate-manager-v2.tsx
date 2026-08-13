@@ -1,7 +1,6 @@
 "use client"
 
 import { Award, Download, Eye, FileText, Loader2, RefreshCw } from "lucide-react"
-import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
