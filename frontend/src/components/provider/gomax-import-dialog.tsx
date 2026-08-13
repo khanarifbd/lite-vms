@@ -1,7 +1,7 @@
 "use client"
 
 import { Download, Loader2, Search } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -49,6 +49,14 @@ export function GoMaxImportDialog({
   const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
+  useEffect(() => {
+    if (!open) {
+      setSelectionMode(false)
+      setSearch("")
+      setSelectedIds(new Set())
+    }
+  }, [open])
+
   const visibleProjects = useMemo(() => {
     if (!preview) return []
     const term = search.trim().toLowerCase()
@@ -60,11 +68,6 @@ export function GoMaxImportDialog({
 
   function resetAndClose(nextOpen: boolean) {
     if (importing) return
-    if (!nextOpen) {
-      setSelectionMode(false)
-      setSearch("")
-      setSelectedIds(new Set())
-    }
     onOpenChange(nextOpen)
   }
 
