@@ -64,6 +64,7 @@ from app.modules.tracking.provider_device_router import router as provider_devic
 from app.modules.tracking.router import router as tracking_router
 from app.modules.uploads.router import router as uploads_router
 from app.modules.vehicles.admin_router import router as admin_vehicle_router
+from app.modules.vehicles.gomax_import_router import router as gomax_import_router
 from app.modules.vehicles.owner_document_router import router as owner_vehicle_document_router
 from app.modules.vehicles.owner_registration_router import router as owner_vehicle_registration_router
 from app.modules.vehicles.provider_document_router import router as provider_vehicle_document_router
@@ -119,6 +120,7 @@ api_router.include_router(provider_device_router)
 api_router.include_router(provider_vehicle_driver_router)
 api_router.include_router(owner_vehicle_driver_router)
 api_router.include_router(provider_unassign_router)
+api_router.include_router(gomax_import_router)
 api_router.include_router(provider_vehicle_registration_router, dependencies=[Depends(apply_vehicle_auto_approval_after_request)])
 api_router.include_router(owner_vehicle_registration_router, dependencies=[Depends(apply_vehicle_auto_approval_after_request)])
 api_router.include_router(vehicles_router)
