@@ -120,8 +120,8 @@ export function ProviderOwnerMobileRegistrationForm() {
         trade_license_number: optional(data, "trade_license_number"),
         tin_number: optional(data, "tin_number"),
         bin_number: optional(data, "bin_number"),
-        registered_address: text(data, "registered_address"),
-        district: text(data, "district"),
+        registered_address: optional(data, "registered_address"),
+        district: optional(data, "district"),
         website_url: optional(data, "website_url"),
         documents: [],
         declaration_accepted: true,
@@ -209,8 +209,8 @@ export function ProviderOwnerMobileRegistrationForm() {
           <CardHeader><CardTitle>2. Owner profile</CardTitle></CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2"><Label htmlFor="owner_name">Owner / company name *</Label><Input id="owner_name" name="owner_name" required /></div>
-            <div className="space-y-2"><Label htmlFor="district">District *</Label><Input id="district" name="district" required /></div>
-            <div className="space-y-2 md:col-span-2"><Label htmlFor="registered_address">Registered address *</Label><Textarea id="registered_address" name="registered_address" required /></div>
+            <div className="space-y-2"><Label htmlFor="district">District</Label><Input id="district" name="district" /></div>
+            <div className="space-y-2 md:col-span-2"><Label htmlFor="registered_address">Registered address</Label><Textarea id="registered_address" name="registered_address" /></div>
             {ownerType === "individual" ? (
               <>
                 <div className="space-y-2"><Label htmlFor="date_of_birth">Date of birth</Label><Input id="date_of_birth" name="date_of_birth" type="date" /></div>
