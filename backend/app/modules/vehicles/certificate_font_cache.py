@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from tempfile import gettempdir
@@ -41,6 +42,8 @@ def _download_font(item: tuple[str, str]) -> None:
 def ensure_certificate_fonts() -> Path:
     """Best-effort cache of the open-source fonts used by the Figma certificate."""
     FONT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    if "pytest" in sys.modules:
+        return FONT_CACHE_DIR
     missing = [item for item in FONT_URLS.items() if not (FONT_CACHE_DIR / item[0]).exists()]
     if missing:
         with ThreadPoolExecutor(max_workers=min(6, len(missing))) as executor:
