@@ -1,10 +1,13 @@
+import secrets
 import uuid
 
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.audit.model import AuditLog
 
 SENSITIVE_KEYS = {"password", "hashed_password", "token", "secret", "api_key", "nid"}
+CERTIFICATE_SERIAL_LOCK_KEY = 2060815001
 
 
 def sanitize_audit_values(values: dict | None) -> dict | None:
@@ -14,6 +17,57 @@ def sanitize_audit_values(values: dict | None) -> dict | None:
         key: "[REDACTED]" if any(item in key.lower() for item in SENSITIVE_KEYS) else value
         for key, value in values.items()
     }
+
+
+async def assign_certificate_number(
+    session: AsyncSession,
+    *,
+    resource_public_id: uuid.UUID | None,
+    new_values: dict | None,
+) -> dict | None:
+    """Assign the canonical human-readable certificate number.
+
+    Format: GOMAX-S000001260815-AB12
+
+    The serial is the total certificate-generation sequence, including replacements.
+    PostgreSQL uses a transaction-scoped advisory lock so concurrent certificate requests
+    cannot receive the same serial. Existing certificate-generation audit entries seed the
+    sequence automatically, so the first certificate after this change continues from the
+    historical generation count rather than resetting to one.
+    """
+    if resource_public_id is None:
+        return new_values
+
+    bind = session.get_bind()
+    if bind.dialect.name == "postgresql":
+        await session.execute(
+            text("SELECT pg_advisory_xact_lock(:lock_key)"),
+            {"lock_key": CERTIFICATE_SERIAL_LOCK_KEY},
+        )
+
+    generated_count = await session.scalar(
+        select(func.count(AuditLog.id)).where(
+            AuditLog.action == "vehicle.certificate_generated"
+        )
+    )
+    serial = int(generated_count or 0) + 1
+
+    from app.modules.vehicles.model import Vehicle
+
+    vehicle = await session.get(Vehicle, resource_public_id)
+    if vehicle is None or vehicle.certificate_issued_at is None:
+        return new_values
+
+    random_code = secrets.token_hex(2).upper()
+    certificate_number = (
+        f"GOMAX-S{serial:06d}{vehicle.certificate_issued_at:%y%m%d}-{random_code}"
+    )
+    vehicle.certificate_number = certificate_number
+
+    updated_values = dict(new_values or {})
+    updated_values["certificate_number"] = certificate_number
+    updated_values["certificate_serial"] = serial
+    return updated_values
 
 
 async def apply_submission_automation(
@@ -140,6 +194,13 @@ async def write_audit_log(
         resource_type=resource_type,
         resource_public_id=resource_public_id,
     )
+
+    if action == "vehicle.certificate_generated" and resource_type == "vehicle":
+        new_values = await assign_certificate_number(
+            session,
+            resource_public_id=resource_public_id,
+            new_values=new_values,
+        )
 
     entry = AuditLog(
         tenant_id=tenant_id,
