@@ -340,8 +340,6 @@ async def build_owner_read(session: AsyncSession, owner: VehicleOwner) -> OwnerA
         or owner.root_organization_id is None
         or owner.application_number is None
         or owner.owner_code is None
-        or owner.address is None
-        or owner.district is None
     ):
         raise RuntimeError("Vehicle owner is a legacy or incomplete record")
 
