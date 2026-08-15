@@ -71,7 +71,7 @@ async def verify_public_certificate(
         issued_at=vehicle.certificate_issued_at,
         expires_at=expires_at,
         vts_installation_date=vehicle.vts_installation_date,
-        owner_name=owner.name if owner else "Owner not recorded",
+        owner_name=(vehicle.registered_owner_name or (owner.name if owner else "Owner not recorded")),
         registration_number=vehicle.registration_number_display or vehicle.registration_number,
         registration_date=vehicle.registration_date,
         registration_authority=vehicle.registration_authority,
