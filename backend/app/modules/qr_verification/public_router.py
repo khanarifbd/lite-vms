@@ -35,8 +35,36 @@ async def verify_public_certificate(
     )
     if vehicle is None or not vehicle.certificate_number:
         raise HTTPException(status_code=404, detail="Certificate was not found")
+
     owner = await session.get(VehicleOwner, vehicle.owner_id)
     expires_at = vehicle.certificate_expires_at
+
+    tracking_assignment = await session.scalar(
+        select(VehicleDeviceAssignment)
+        .where(
+            VehicleDeviceAssignment.vehicle_id == vehicle.id,
+            VehicleDeviceAssignment.status == TrackingAssignmentStatus.ACTIVE,
+            VehicleDeviceAssignment.valid_to.is_(None),
+        )
+        .order_by(
+            VehicleDeviceAssignment.is_primary.desc(),
+            VehicleDeviceAssignment.valid_from.desc(),
+        )
+    )
+    provider_id = (
+        tracking_assignment.provider_id
+        if tracking_assignment and tracking_assignment.provider_id
+        else vehicle.created_by_provider_id
+    )
+    provider = await session.get(VTSProvider, provider_id) if provider_id else None
+
+    last_signal_at = vehicle.last_received_at or vehicle.last_recorded_at
+    if last_signal_at and last_signal_at.tzinfo is None:
+        last_signal_at = last_signal_at.replace(tzinfo=UTC)
+    gps_online = bool(
+        last_signal_at and last_signal_at >= datetime.now(UTC) - timedelta(minutes=5)
+    )
+
     return PublicCertificateVerification(
         valid=bool(expires_at and expires_at >= date.today()),
         certificate_number=vehicle.certificate_number,
@@ -45,8 +73,24 @@ async def verify_public_certificate(
         vts_installation_date=vehicle.vts_installation_date,
         owner_name=owner.name if owner else "Owner not recorded",
         registration_number=vehicle.registration_number_display or vehicle.registration_number,
+        registration_date=vehicle.registration_date,
+        registration_authority=vehicle.registration_authority,
         vehicle_type=vehicle.vehicle_type,
+        vehicle_category=vehicle.vehicle_category,
+        brand=vehicle.brand,
+        model=vehicle.model,
+        color=vehicle.color,
+        manufacturing_year=vehicle.manufacturing_year,
         chassis_number=vehicle.chassis_number,
+        engine_number=vehicle.engine_number,
+        vehicle_verification_status=vehicle.verification_status.value,
+        vehicle_status=vehicle.status.value,
+        provider_name=provider.name if provider else "No VTS provider connected",
+        provider_code=provider.code if provider else None,
+        btrc_license_number=provider.license_number if provider else None,
+        provider_status=provider.status.value if provider else None,
+        gps_online=gps_online,
+        last_signal_at=last_signal_at,
     )
 
 
