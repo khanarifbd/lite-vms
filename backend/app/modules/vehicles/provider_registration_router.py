@@ -496,7 +496,7 @@ async def generate_provider_vehicle_certificate(
 
     issued_at = date.today()
     expires_at = payload.certificate_expires_at
-    vehicle.certificate_number = f"VTS-{issued_at:%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
+    vehicle.certificate_number = f"GOMAX-{issued_at:%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
     vehicle.certificate_issued_at = issued_at
     vehicle.certificate_expires_at = expires_at
     vehicle.vts_installation_date = payload.vts_installation_date

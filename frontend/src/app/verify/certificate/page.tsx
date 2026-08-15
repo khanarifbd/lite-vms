@@ -38,7 +38,7 @@ export default function CertificateSearchPage() {
                 autoComplete="off"
                 autoFocus
                 onChange={(event) => setCertificateNumber(event.target.value)}
-                placeholder="e.g. VTS-20260811-3862734F"
+                placeholder="e.g. GOMAX-20260815-8F54C2A1"
                 value={certificateNumber}
               />
             </label>
