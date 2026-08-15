@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   CircleX,
   FileCheck2,
-  RadioTower,
   Search,
   ShieldCheck,
   UserRound,
@@ -41,32 +40,18 @@ type CertificateVerification = {
   chassis_number: string
   engine_number: string | null
   vehicle_verification_status: string
-  vehicle_status: string
   provider_name: string
   provider_code: string | null
   btrc_license_number: string | null
   provider_status: string | null
-  gps_online: boolean
-  last_signal_at: string | null
 }
 
 const dateFormatter = new Intl.DateTimeFormat("en-BD", { dateStyle: "long" })
-const dateTimeFormatter = new Intl.DateTimeFormat("en-BD", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "Asia/Dhaka",
-})
 
 function formatDate(value: string | null) {
   if (!value) return "Not recorded"
   const date = new Date(`${value}T00:00:00`)
   return Number.isNaN(date.getTime()) ? "Not recorded" : dateFormatter.format(date)
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) return "No recent signal recorded"
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? "No recent signal recorded" : dateTimeFormatter.format(date)
 }
 
 function titleCase(value: string | null | undefined) {
@@ -174,7 +159,7 @@ export default async function PublicCertificateVerificationPage({ params }: Prop
           </div>
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className={`rounded-2xl border p-4 shadow-sm ${certificate.valid ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"}`}>
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
               {certificate.valid ? <CheckCircle2 className="size-5 text-emerald-700" /> : <CircleX className="size-5 text-rose-700" />}
@@ -193,12 +178,6 @@ export default async function PublicCertificateVerificationPage({ params }: Prop
               <Building2 className="size-5 text-emerald-700" /> VTS provider
             </div>
             <p className="mt-2 truncate text-sm text-slate-600">{certificate.provider_name}</p>
-          </div>
-          <div className={`rounded-2xl border p-4 shadow-sm ${certificate.gps_online ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <RadioTower className={`size-5 ${certificate.gps_online ? "text-emerald-700" : "text-slate-500"}`} /> GPS connection
-            </div>
-            <p className="mt-2 text-sm text-slate-600">{certificate.gps_online ? "Connected / recent signal" : "No recent signal"}</p>
           </div>
         </section>
 
@@ -248,19 +227,6 @@ export default async function PublicCertificateVerificationPage({ params }: Prop
             <div className="rounded-2xl border border-cyan-100 bg-cyan-50/60 p-4 text-sm leading-6 text-slate-700">
               <strong className="text-slate-950">Compliance note:</strong> This page verifies the certificate record stored in AutoGeneration LTD CMS Portal. Certificate validity is based on the recorded issue and expiry period. Other statutory vehicle documents should be checked separately where required by the inspecting authority.
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="border-b border-slate-100 bg-white/70">
-            <CardTitle className="flex items-center gap-2"><RadioTower className="size-5 text-cyan-700" /> Operational status</CardTitle>
-            <CardDescription>Current public operational indicators available for this vehicle record.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 pt-6 sm:grid-cols-2 lg:grid-cols-4">
-            <DetailCard label="Vehicle status" value={titleCase(certificate.vehicle_status)} icon={CarFront} />
-            <DetailCard label="Verification status" value={titleCase(certificate.vehicle_verification_status)} icon={ShieldCheck} />
-            <DetailCard label="GPS status" value={certificate.gps_online ? "Connected" : "No recent signal"} icon={RadioTower} />
-            <DetailCard label="Last GPS signal" value={formatDateTime(certificate.last_signal_at)} icon={CalendarClock} />
           </CardContent>
         </Card>
 
