@@ -1,8 +1,6 @@
 import {
   Activity,
-  Building2,
   CarFront,
-  Gauge,
   LockKeyhole,
   MapPinned,
   RadioTower,
@@ -39,22 +37,10 @@ const platformHighlights = [
 
 const registrationOptions = [
   {
-    href: "/register/vts-provider",
-    label: "VTS Provider",
-    description: "Register provider account",
-    icon: Building2,
-  },
-  {
     href: "/register/vehicle-owner",
     label: "Vehicle Owner",
     description: "Register owner account",
     icon: CarFront,
-  },
-  {
-    href: "/register/driver",
-    label: "Driver",
-    description: "Register driver account",
-    icon: Gauge,
   },
 ]
 
@@ -161,23 +147,23 @@ export default async function LoginPage() {
               <span className="h-px flex-1 bg-border" />
             </div>
 
-            <div className="grid gap-2 min-[390px]:grid-cols-3">
+            <div className="grid gap-2">
               {registrationOptions.map(({ href, label, description, icon: Icon }) => (
                 <Button
                   key={href}
                   asChild
                   variant="outline"
-                  className="h-16 justify-start gap-2 rounded-xl bg-emerald-50/70 px-2 py-2 hover:bg-emerald-100/80"
+                  className="h-14 justify-start gap-3 rounded-xl bg-emerald-50/70 px-3 py-2 hover:bg-emerald-100/80"
                 >
                   <Link href={href}>
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-white text-emerald-700 shadow-sm">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white text-emerald-700 shadow-sm">
                       <Icon className="size-4" />
                     </span>
                     <span className="min-w-0 flex-1 text-left leading-tight">
-                      <span className="block whitespace-normal text-[10px] font-semibold leading-3.5 sm:text-[11px]">
+                      <span className="block whitespace-normal text-sm font-semibold leading-4">
                         {label}
                       </span>
-                      <span className="mt-1 block whitespace-normal text-[8px] font-normal leading-3 text-muted-foreground">
+                      <span className="mt-1 block whitespace-normal text-[10px] font-normal leading-3 text-muted-foreground">
                         {description}
                       </span>
                     </span>
