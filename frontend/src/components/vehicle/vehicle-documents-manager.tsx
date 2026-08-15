@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DdMmYyyyInput, readOptionalDdMmYyyyIso } from "@/components/ui/date-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { VEHICLE_DOCUMENT_DEFINITIONS } from "@/features/vehicles/document-definitions"
@@ -80,6 +81,7 @@ export function VehicleDocumentsManager({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [formVersion, setFormVersion] = useState(0)
 
   const currentDocuments = useMemo(
     () =>
@@ -119,6 +121,11 @@ export function VehicleDocumentsManager({
     setDocuments((await response.json()) as VehicleDocumentPage)
   }
 
+  function resetUploadForm() {
+    formRef.current?.reset()
+    setFormVersion((current) => current + 1)
+  }
+
   function selectDocument(type: VehicleDocumentType) {
     setSelectedType(type)
     setError(null)
@@ -140,9 +147,17 @@ export function VehicleDocumentsManager({
       if (!(file instanceof File) || file.size === 0) {
         throw new Error("Select a PDF or image document before uploading.")
       }
-      for (const key of ["document_number", "issued_at", "expires_at"]) {
-        if (!String(formData.get(key) || "").trim()) formData.delete(key)
+
+      if (!String(formData.get("document_number") || "").trim()) {
+        formData.delete("document_number")
       }
+
+      const issuedAt = readOptionalDdMmYyyyIso(formData, "issued_at", "Issued date")
+      const expiresAt = readOptionalDdMmYyyyIso(formData, "expires_at", "Expiry date")
+      if (issuedAt) formData.set("issued_at", issuedAt)
+      else formData.delete("issued_at")
+      if (expiresAt) formData.set("expires_at", expiresAt)
+      else formData.delete("expires_at")
 
       const response = await fetch(apiBase, {
         method: "POST",
@@ -152,7 +167,7 @@ export function VehicleDocumentsManager({
         throw new Error(await responseMessage(response, "Unable to upload document."))
       }
       await reloadDocuments()
-      formRef.current?.reset()
+      resetUploadForm()
       setSuccess(
         selectedExisting
           ? `${statusLabel(selectedType)} replacement sent for verification. The current approved document remains effective until approval.`
@@ -348,11 +363,11 @@ export function VehicleDocumentsManager({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="issued_at">Issued date</Label>
-                <Input id="issued_at" name="issued_at" type="date" />
+                <DdMmYyyyInput key={`issued-${formVersion}`} id="issued_at" name="issued_at" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="expires_at">Expiry date</Label>
-                <Input id="expires_at" name="expires_at" type="date" />
+                <DdMmYyyyInput key={`expires-${formVersion}`} id="expires_at" name="expires_at" />
               </div>
               <div className="space-y-2 md:col-span-2 xl:col-span-4">
                 <Label htmlFor="file">PDF or image file</Label>
@@ -376,7 +391,7 @@ export function VehicleDocumentsManager({
                   type="button"
                   variant="outline"
                   disabled={pending}
-                  onClick={() => formRef.current?.reset()}
+                  onClick={resetUploadForm}
                 >
                   Clear form
                 </Button>
