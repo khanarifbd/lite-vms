@@ -8,6 +8,7 @@ from app.modules.audit.model import AuditLog
 
 SENSITIVE_KEYS = {"password", "hashed_password", "token", "secret", "api_key", "nid"}
 CERTIFICATE_SERIAL_LOCK_KEY = 2060815001
+CERTIFICATE_RANDOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
 def sanitize_audit_values(values: dict | None) -> dict | None:
@@ -58,7 +59,9 @@ async def assign_certificate_number(
     if vehicle is None or vehicle.certificate_issued_at is None:
         return new_values
 
-    random_code = secrets.token_hex(2).upper()
+    random_code = "".join(
+        secrets.choice(CERTIFICATE_RANDOM_ALPHABET) for _ in range(4)
+    )
     certificate_number = (
         f"GOMAX-S{serial:06d}{vehicle.certificate_issued_at:%y%m%d}-{random_code}"
     )
