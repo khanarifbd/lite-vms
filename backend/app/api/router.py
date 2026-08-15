@@ -101,7 +101,10 @@ api_router.include_router(admin_provider_router)
 api_router.include_router(admin_owner_router)
 api_router.include_router(admin_vehicle_router)
 api_router.include_router(provider_staff_router)
-api_router.include_router(provider_customer_router)
+api_router.include_router(
+    provider_customer_router,
+    dependencies=[Depends(apply_owner_auto_approval_after_request)],
+)
 api_router.include_router(provider_workspace_router)
 api_router.include_router(provider_api_key_router)
 api_router.include_router(providers_router)
