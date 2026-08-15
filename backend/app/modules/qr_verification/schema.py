@@ -95,5 +95,21 @@ class PublicCertificateVerification(BaseModel):
     vts_installation_date: date | None
     owner_name: str
     registration_number: str
+    registration_date: date | None
+    registration_authority: str | None
     vehicle_type: str
+    vehicle_category: str | None
+    brand: str | None
+    model: str | None
+    color: str | None
+    manufacturing_year: int | None
     chassis_number: str
+    engine_number: str | None
+    vehicle_verification_status: str
+    vehicle_status: str
+    provider_name: str
+    provider_code: str | None
+    btrc_license_number: str | None
+    provider_status: str | None
+    gps_online: bool
+    last_signal_at: datetime | None
