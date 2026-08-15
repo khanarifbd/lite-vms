@@ -36,12 +36,15 @@ function monthsAheadDate(months: number) {
   return `${year}-${month}-${day}`
 }
 
+const expiryShortcuts = [3, 6, 12] as const
+
 export function ProviderCertificateManagerV2({ vehicleId, canManage }: { vehicleId: string; canManage: boolean }) {
   const expiryFormRef = useRef<HTMLFormElement>(null)
   const [certificate, setCertificate] = useState<Certificate | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [expiryDate, setExpiryDate] = useState(() => monthsAheadDate(1))
 
   async function load() {
     const response = await fetch(`/api/provider/vehicles/${vehicleId}/certificate`)
@@ -79,6 +82,11 @@ export function ProviderCertificateManagerV2({ vehicleId, canManage }: { vehicle
     }
   }
 
+  function openGenerateDialog() {
+    setExpiryDate(monthsAheadDate(1))
+    setDialogOpen(true)
+  }
+
   if (!certificate && !error) {
     return <Card><CardContent className="flex min-h-48 items-center justify-center"><Loader2 className="animate-spin text-emerald-800" /></CardContent></Card>
   }
@@ -103,7 +111,7 @@ export function ProviderCertificateManagerV2({ vehicleId, canManage }: { vehicle
         <div className="flex flex-wrap gap-3">
           {certificate.certificate_number ? <Button asChild variant="outline"><a href={`/api/provider/vehicles/${vehicleId}/certificate/download?view=1`} target="_blank" rel="noopener noreferrer"><Eye /> View certificate</a></Button> : null}
           {certificate.certificate_number ? <Button asChild variant="outline"><a href={`/api/provider/vehicles/${vehicleId}/certificate/download`}><Download /> Download certificate PDF</a></Button> : null}
-          {canManage ? <Button disabled={!certificate.can_generate || busy} onClick={() => setDialogOpen(true)} className="bg-emerald-800 hover:bg-emerald-900"><RefreshCw />{certificate.certificate_number ? "Generate replacement certificate" : "Generate certificate"}</Button> : null}
+          {canManage ? <Button disabled={!certificate.can_generate || busy} onClick={openGenerateDialog} className="bg-emerald-800 hover:bg-emerald-900"><RefreshCw />{certificate.certificate_number ? "Generate replacement certificate" : "Generate certificate"}</Button> : null}
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -115,7 +123,24 @@ export function ProviderCertificateManagerV2({ vehicleId, canManage }: { vehicle
             <form ref={expiryFormRef} onSubmit={(event) => { event.preventDefault(); void generate() }} className="space-y-4">
               <div className="space-y-2">
                 <label className="block text-sm font-medium" htmlFor="certificate-expiry-date">Certificate expiry date</label>
-                <DdMmYyyyInput id="certificate-expiry-date" name="certificate_expires_at" defaultValue={monthsAheadDate(1)} required />
+                <DdMmYyyyInput key={expiryDate} id="certificate-expiry-date" name="certificate_expires_at" defaultValue={expiryDate} required />
+                <div className="space-y-2 pt-1">
+                  <p className="text-xs text-muted-foreground">Set automatically from today</p>
+                  <div className="flex flex-wrap gap-2">
+                    {expiryShortcuts.map((months) => (
+                      <Button
+                        key={months}
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => setExpiryDate(monthsAheadDate(months))}
+                      >
+                        {months} months
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <DialogFooter showCloseButton>
                 <Button type="submit" disabled={busy} className="bg-emerald-800 hover:bg-emerald-900">{busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}{certificate.certificate_number ? "Generate replacement" : "Generate certificate"}</Button>
