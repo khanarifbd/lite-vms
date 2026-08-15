@@ -6,6 +6,7 @@ import {
   LockKeyhole,
   MapPinned,
   RadioTower,
+  Search,
   ShieldCheck,
 } from "lucide-react"
 import Link from "next/link"
@@ -184,6 +185,18 @@ export default async function LoginPage() {
                 </Button>
               ))}
             </div>
+
+            <Button
+              asChild
+              variant="outline"
+              className="mt-3 h-11 w-full justify-center gap-2 rounded-xl border-cyan-200 bg-cyan-50/80 text-cyan-900 hover:bg-cyan-100 hover:text-cyan-950"
+            >
+              <Link href="/verify/certificate">
+                <Search className="size-4" />
+                <span className="font-semibold">Verify certificate</span>
+                <span className="text-xs font-normal text-muted-foreground">by certificate number</span>
+              </Link>
+            </Button>
           </div>
 
           <p className="mt-3 text-center text-[10px] leading-4 text-emerald-100/70 sm:text-[11px]">
