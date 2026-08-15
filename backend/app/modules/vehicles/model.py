@@ -1,11 +1,24 @@
+import secrets
 import uuid
 from datetime import date, datetime
 
 from sqlalchemy import Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.common.enums import EntityStatus, VehicleVerificationStatus
 from app.db.base import BIGINT_PK, Base, TimestampMixin, UUIDPrimaryKeyMixin
+
+
+_CERTIFICATE_SUFFIX_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+_CERTIFICATE_SUFFIX_DIGITS = "0123456789"
+
+
+def _certificate_suffix() -> str:
+    """Return a readable 7-character suffix containing both letters and numbers."""
+    return "".join(
+        secrets.choice(_CERTIFICATE_SUFFIX_LETTERS if index % 2 == 0 else _CERTIFICATE_SUFFIX_DIGITS)
+        for index in range(7)
+    )
 
 
 class Vehicle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -99,3 +112,26 @@ class Vehicle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         default=EntityStatus.ACTIVE,
         index=True,
     )
+
+    @validates("certificate_number")
+    def normalize_generated_certificate_number(
+        self,
+        _: str,
+        value: str | None,
+    ) -> str | None:
+        """Keep the existing certificate prefix and normalize only its random suffix."""
+        if value is None or not value.startswith("GOMAX-"):
+            return value
+
+        prefix, separator, suffix = value.rpartition("-")
+        if not separator or not suffix.isalnum():
+            return value
+
+        if (
+            len(suffix) == 7
+            and any(character.isalpha() for character in suffix)
+            and any(character.isdigit() for character in suffix)
+        ):
+            return value.upper()
+
+        return f"{prefix}-{_certificate_suffix()}"
