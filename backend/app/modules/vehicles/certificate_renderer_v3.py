@@ -76,8 +76,8 @@ def _fit_size(text: str, font_name: str, maximum: float, minimum: float, width: 
     return size
 
 
-def render_certificate_pdf(vehicle: Vehicle, owner: VehicleOwner, provider_legal_name: str) -> BytesIO:
-    """Render the certificate using the exact Figma frame geometry and typography."""
+def _render_certificate_pdf_legacy(vehicle: Vehicle, owner: VehicleOwner, provider_legal_name: str) -> BytesIO:
+    """Legacy vector renderer retained for historical certificate compatibility."""
     if not vehicle.certificate_number or not vehicle.certificate_issued_at or not vehicle.certificate_expires_at:
         raise ValueError("Certificate has not been issued")
 
@@ -154,7 +154,10 @@ def render_certificate_pdf(vehicle: Vehicle, owner: VehicleOwner, provider_legal
     qr_output = BytesIO()
     qrcode.make(verification_url).save(qr_output, format="PNG")
     qr_output.seek(0)
-    page.drawImage(ImageReader(qr_output), x(1048), y(441.6), x(240), x(240), mask="auto")
+    # Figma frame 47:32: the verification QR occupies the upper-right header.
+    # Keep this independent of the certificate-number chip so dynamic certificate
+    # numbers never push the QR into the body copy.
+    page.drawImage(ImageReader(qr_output), x(1048), y(202 + 240), x(240), x(240), mask="auto")
     draw_text("Scan to Verify", anchor_x=1168, baseline=476, font=fonts["DMSansMedium"], size=24, align="center", fill=colors.HexColor("#1e1e1e"))
 
     static_lines = [
@@ -215,7 +218,9 @@ def render_certificate_pdf(vehicle: Vehicle, owner: VehicleOwner, provider_legal
 
     page.setFillColor(colors.white)
     page.setStrokeColor(BTRC_BORDER)
-    page.roundRect(x(101), y(1418), x(1160), x(170), x(12), stroke=1, fill=1)
+    # This provider panel starts directly below the two information cards at
+    # y=1248 in the Figma canvas, leaving the intended 60px visual gap.
+    page.roundRect(x(101), y(1248 + 170), x(1160), x(170), x(12), stroke=1, fill=1)
     draw_asset("btrc_1.png", 131, 1308.37, 130, 89.63)
     draw_asset("btrc_2.png", 158.47, 1268, 72.47, 23.02)
     draw_asset("btrc_3.png", 150.63, 1285.22, 89.81, 92.94)
@@ -250,6 +255,122 @@ def render_certificate_pdf(vehicle: Vehicle, owner: VehicleOwner, provider_legal
     draw_text("BRTA Approved", anchor_x=1161, baseline=1703, font=fonts["DMSansMedium"], size=20, align="center")
     draw_text("This is a system generated certificate and requires no manual signature.", anchor_x=681, baseline=1860, font=fonts["InterItalic"], size=18, align="center", fill=SECONDARY)
     draw_text("Powered by Auto generation Limited.", anchor_x=681, baseline=1886, font=fonts["InterItalic"], size=18, align="center", fill=SECONDARY)
+
+    page.showPage()
+    page.save()
+    output.seek(0)
+    return output
+
+
+def render_certificate_pdf(vehicle: Vehicle, owner: VehicleOwner, provider_legal_name: str) -> BytesIO:
+    """Render the selected Figma frame and overlay only certificate-specific data.
+
+    The master is the exported 1362×1920 Figma frame (47:32).  Keeping it as
+    the static layer prevents PDF font-engine differences from changing the
+    approved artwork, watermark, Bengali copy, logos, or spacing.
+    """
+    if not vehicle.certificate_number or not vehicle.certificate_issued_at or not vehicle.certificate_expires_at:
+        raise ValueError("Certificate has not been issued")
+
+    output = BytesIO()
+    page = canvas.Canvas(output, pagesize=A4)
+    width, height = A4
+    scale = width / FIGMA_WIDTH
+
+    def x(value: float) -> float:
+        return value * scale
+
+    def y(value: float) -> float:
+        return height - value * scale
+
+    def date_text(value: date | None, *, upper: bool = False, leading_zero: bool = False) -> str:
+        if value is None:
+            return "Not recorded"
+        day = f"{value.day:02d}" if leading_zero else str(value.day)
+        rendered = f"{day} {value.strftime('%B %Y')}"
+        return rendered.upper() if upper else rendered
+
+    master = ASSET_DIR / "figma_certificate_master.png"
+    if not master.exists():
+        # Keep a working fallback for source checkouts that pre-date the Figma master.
+        return _render_certificate_pdf_legacy(vehicle, owner, provider_legal_name)
+    page.drawImage(ImageReader(master), 0, 0, width, height, mask="auto")
+
+    def clear(left: float, top: float, box_width: float, box_height: float, fill=colors.white) -> None:
+        page.setFillColor(fill)
+        page.rect(x(left), y(top + box_height), x(box_width), x(box_height), stroke=0, fill=1)
+
+    def value(text: str, *, right: float, baseline: float, max_width: float, fill=ROW_TEXT) -> None:
+        font = "Helvetica-Bold"
+        size = x(16)
+        minimum = x(9)
+        while size > minimum and pdfmetrics.stringWidth(text, font, size) > x(max_width):
+            size -= 0.1
+        page.setFont(font, size)
+        page.setFillColor(fill)
+        page.drawRightString(x(right), y(baseline), text)
+
+    # Certificate number: mask the sample number shipped in the Figma master.
+    chip_left, chip_top, chip_width, chip_height = 383, 465, 596, 62
+    page.setFillColor(colors.HexColor("#f5eee7"))
+    page.setStrokeColor(colors.HexColor("#e1b68d"))
+    page.setLineWidth(x(1))
+    page.roundRect(x(chip_left), y(chip_top + chip_height), x(chip_width), x(chip_height), x(12), stroke=1, fill=1)
+    chip_text = f"GPS Certificate No: {vehicle.certificate_number}"
+    chip_size = x(26)
+    while chip_size > x(13) and pdfmetrics.stringWidth(chip_text, "Helvetica-Bold", chip_size) > x(chip_width - 44):
+        chip_size -= 0.1
+    page.setFont("Helvetica-Bold", chip_size)
+    page.setFillColor(TEXT)
+    page.drawCentredString(x(681), y(506), chip_text)
+
+    # QR is dynamic and always resolves to this deployment's public verifier.
+    clear(1048, 202, 240, 240)
+    verification_url = f"{settings.public_web_url.rstrip('/')}/verify/certificate/{quote(vehicle.certificate_number, safe='')}"
+    qr_output = BytesIO()
+    qrcode.make(verification_url).save(qr_output, format="PNG")
+    qr_output.seek(0)
+    page.drawImage(ImageReader(qr_output), x(1048), y(202 + 240), x(240), x(240), mask="auto")
+
+    # The Figma master keeps every label and table line immutable. Only clear
+    # the value cells, preserving the exact card artwork beneath all records.
+    left_rows = [924 + index * 49 for index in range(5)]
+    right_rows = [924 + index * 49 for index in range(5)]
+    for row_top in left_rows:
+        clear(350, row_top, 291, 48)
+    for row_top in right_rows:
+        clear(980, row_top, 261, 48)
+
+    left_values = [
+        _owner_name(vehicle, owner),
+        (vehicle.registration_number_display or vehicle.registration_number).upper(),
+        vehicle.vehicle_type or "Not recorded",
+        vehicle.engine_number or "Not recorded",
+        vehicle.chassis_number or "Not recorded",
+    ]
+    for index, item in enumerate(left_values):
+        value(item, right=617, baseline=955 + index * 49, max_width=255)
+
+    right_values = [
+        date_text(vehicle.certificate_issued_at),
+        date_text(vehicle.certificate_expires_at, upper=True),
+        date_text(vehicle.vts_installation_date, leading_zero=True),
+        "Active",
+        "Connected",
+    ]
+    for index, item in enumerate(right_values):
+        color = GREEN if index == 3 else ROW_TEXT
+        value(item, right=1217, baseline=955 + index * 49, max_width=220, fill=color)
+        if index >= 3:
+            font_size = x(16)
+            text_width = pdfmetrics.stringWidth(item, "Helvetica-Bold", font_size)
+            dot_x = x(1217) - text_width - x(20)
+            dot_y = y(955 + index * 49 - 4)
+            page.setStrokeColor(GREEN)
+            page.setFillColor(colors.white)
+            page.circle(dot_x, dot_y, x(6.5), stroke=1, fill=1)
+            page.setFillColor(GREEN)
+            page.circle(dot_x, dot_y, x(3.5), stroke=0, fill=1)
 
     page.showPage()
     page.save()
