@@ -249,8 +249,8 @@ class OwnerApplicationRead(BaseModel):
     email: str | None
     account_username: str | None = None
     account_status: str | None = None
-    registered_address: str
-    district: str
+    registered_address: str | None
+    district: str | None
     website_url: str | None
     documents: list[OwnerDocumentRead]
     linked_providers: list[ProviderLinkSummary]
