@@ -82,6 +82,11 @@ def _wrapped_text_lines(
     return lines
 
 
+def _is_gomax_provider(provider_legal_name: str) -> bool:
+    compact = provider_legal_name.lower().replace(" ", "")
+    return "gomax" in compact or "autogeneration" in compact
+
+
 def render_certificate_pdf(
     vehicle: Vehicle,
     owner: VehicleOwner,
@@ -151,7 +156,6 @@ def render_certificate_pdf(
         title: str,
         rows: list[tuple[str, str, colors.Color, bool]],
     ) -> None:
-        # Figma nodes 47:313 / 47:331.
         top = 859.0
         card_width = 560.0
         card_height = 329.0
@@ -205,7 +209,6 @@ def render_certificate_pdf(
                 maximum_width=x(card_width - 250),
                 horizontal_scale=value_scale,
             )
-            # _fitted_font_size operates in PDF points, so draw this value manually.
             value_width = _scaled_width(value, "Helvetica-Bold", value_size, value_scale)
             text_object = page.beginText()
             text_object.setTextOrigin(x(value_right) - value_width, y(current_top + 31))
@@ -224,19 +227,17 @@ def render_certificate_pdf(
                 page.setFillColor(ACTIVE_GREEN)
                 page.circle(dot_x, dot_y, x(2.7), stroke=0, fill=1)
 
-    # Background and exact frame geometry.
     page.setFillColor(colors.HexColor("#fdf9f5"))
     page.rect(0, 0, width, height, stroke=0, fill=1)
     draw_asset("pattern.png", -671, 0, 2705, FIGMA_HEIGHT)
     draw_asset("border.png", 21, 0, 1319.38, FIGMA_HEIGHT)
     draw_asset("background_mark.png", 210, 568, 943, 301.653)
 
-    # Brand marks (Figma positions retained).
     draw_asset("gomax_tracker.png", 110.07, 30, 238.47, 100)
     draw_asset("auto_generation.png", 936.45, 30, 315.47, 100)
 
-    # Header typography. Alumni Sans is strongly condensed; horizontal scaling reproduces its footprint
-    # while avoiding a deployment-time font dependency.
+    # Figma: DM Sans ExtraBold + Alumni Sans. Helvetica is reshaped horizontally so
+    # its printed footprint matches the design without introducing a server font dependency.
     draw_scaled_text(
         "AUTO GENERATION LIMITED",
         anchor_x=681,
@@ -265,7 +266,6 @@ def render_certificate_pdf(
         align="center",
     )
 
-    # Certificate number chip.
     page.setFillColor(colors.HexColor("#f5eee7"))
     page.setStrokeColor(colors.HexColor("#e1b68d"))
     page.setLineWidth(x(1))
@@ -288,7 +288,6 @@ def render_certificate_pdf(
     chip_text.textOut(certificate_label)
     page.drawText(chip_text)
 
-    # Dynamic verification QR — exact Figma node 47:436 geometry.
     verification_url = (
         f"{settings.public_web_url.rstrip('/')}/verify/certificate/"
         f"{quote(vehicle.certificate_number, safe='')}"
@@ -303,40 +302,54 @@ def render_certificate_pdf(
         baseline=476,
         font_name="Helvetica",
         font_size=24,
-        horizontal_scale=100,
         align="center",
         fill=colors.HexColor("#1e1e1e"),
     )
 
-    # Explanatory copy. Widen the Helvetica glyph footprint to visually match Inter used by Figma.
-    legal_name = provider_legal_name.strip() or "VTS Provider"
-    statement_paragraphs = [
-        (
-            "This is to clarify that the vehicle described below has been equipped with genuine, active "
-            f"and fully operational GPS tracking device installed by {legal_name}, a BTRC Licensed "
-            "Vehicle Tracking Service (VTS) Provider."
-        ),
-        (
-            "The certificate confirms that the installed GPS tracking device is functional and has been "
-            "installed in accordance with applicable GPS tracking requirements and relevant directives "
-            "issued by the Bangladesh Road Transport Authority (BRTA), where applicable."
-        ),
-    ]
-    statement_font = x(24)
-    statement_scale = 119
-    statement_lines: list[str] = []
-    for paragraph in statement_paragraphs:
-        if statement_lines:
-            statement_lines.append("")
-        statement_lines.extend(
-            _wrapped_text_lines(
-                paragraph,
-                font_name="Helvetica",
-                font_size=statement_font,
-                maximum_width=x(1160),
-                horizontal_scale=statement_scale,
+    # Go Max uses the exact Figma certificate copy and line breaks. Other providers retain
+    # a provider-aware fallback so the shared certificate engine remains reusable.
+    if _is_gomax_provider(provider_legal_name):
+        statement_lines = [
+            "This is to clarify that the vehicle described below has been equipped with genuine, active and",
+            "fully operational GPS tracking device installed by Go Max Tracker, a product of Auto generation Limited,",
+            "a BTRC Licensed Vehicle Tracking Service (VTS) Provider.",
+            "",
+            "The certificate confirms that the installed GPS tracking device is functional and has been",
+            "installed in accordance with applicable GPS tracking requirements and relevant directives issued",
+            "by the Bangladesh Road Transport Authority (BRTA), where applicable.",
+        ]
+        statement_scale = 104
+    else:
+        legal_name = provider_legal_name.strip() or "VTS Provider"
+        statement_paragraphs = [
+            (
+                "This is to clarify that the vehicle described below has been equipped with genuine, active "
+                f"and fully operational GPS tracking device installed by {legal_name}, a BTRC Licensed "
+                "Vehicle Tracking Service (VTS) Provider."
+            ),
+            (
+                "The certificate confirms that the installed GPS tracking device is functional and has been "
+                "installed in accordance with applicable GPS tracking requirements and relevant directives "
+                "issued by the Bangladesh Road Transport Authority (BRTA), where applicable."
+            ),
+        ]
+        statement_font_for_wrap = x(24)
+        statement_scale = 108
+        statement_lines = []
+        for paragraph in statement_paragraphs:
+            if statement_lines:
+                statement_lines.append("")
+            statement_lines.extend(
+                _wrapped_text_lines(
+                    paragraph,
+                    font_name="Helvetica",
+                    font_size=statement_font_for_wrap,
+                    maximum_width=x(1160),
+                    horizontal_scale=statement_scale,
+                )
             )
-        )
+
+    statement_font = x(24)
     for index, line in enumerate(statement_lines):
         line_width = _scaled_width(line, "Helvetica", statement_font, statement_scale)
         text_object = page.beginText()
@@ -347,7 +360,6 @@ def render_certificate_pdf(
         text_object.textOut(line)
         page.drawText(text_object)
 
-    # Dynamic information cards.
     normal = TEXT_COLOR
     vehicle_rows = [
         ("Owner Name:", _owner_name(vehicle, owner), normal, False),
@@ -366,20 +378,17 @@ def render_certificate_pdf(
     draw_card(101, "VEHICLE PARTICULARS", vehicle_rows)
     draw_card(701, "VALIDITY INFORMATION", validity_rows)
 
-    # BTRC licence strip: keep the Figma container, but correct artwork proportions from the first pass.
     page.setFillColor(colors.white)
     page.setStrokeColor(BTRC_BORDER)
     page.setLineWidth(x(1))
     page.roundRect(x(101), y(1418), x(1160), x(170), x(12), stroke=1, fill=1)
 
-    # BTRC mark scaled to the visual size in Figma node 47:360.
     logo_scale = 0.90
     draw_asset("btrc_1.png", 141, 1312, 130 * logo_scale, 89.63 * logo_scale)
     draw_asset("btrc_2.png", 165.7, 1276, 72.47 * logo_scale, 23.02 * logo_scale)
     draw_asset("btrc_3.png", 158.6, 1291.5, 89.81 * logo_scale, 92.94 * logo_scale)
     draw_asset("btrc_4.png", 168.5, 1325.3, 68.78 * logo_scale, 22.78 * logo_scale)
 
-    # Bengali heading was exported from the Figma artwork. First pass was too wide.
     draw_asset("btrc_bangla_title.png", 309, 1290, 760, 32)
     draw_scaled_text(
         "BTRC VTS License No:",
@@ -397,10 +406,8 @@ def render_certificate_pdf(
         font_name="Helvetica-Bold",
         font_size=26,
         horizontal_scale=103,
-        fill=TEXT_COLOR,
     )
 
-    # Footer block — Figma node 47:288.
     draw_scaled_text(
         "IMPORTANT NOTICE",
         anchor_x=101,
@@ -461,7 +468,6 @@ def render_certificate_pdf(
         baseline=1703,
         font_name="Helvetica",
         font_size=20,
-        horizontal_scale=100,
         align="center",
     )
 
