@@ -110,7 +110,10 @@ api_router.include_router(public_qr_router)
 api_router.include_router(owner_profile_router, dependencies=[Depends(apply_owner_auto_approval_after_request)])
 api_router.include_router(owner_connection_router)
 api_router.include_router(owner_public_registration_router)
-api_router.include_router(owner_mobile_registration_router)
+api_router.include_router(
+    owner_mobile_registration_router,
+    dependencies=[Depends(apply_owner_auto_approval_after_request)],
+)
 api_router.include_router(owners_router)
 api_router.include_router(owner_recovery_router)
 api_router.include_router(vehicle_registry_router)
