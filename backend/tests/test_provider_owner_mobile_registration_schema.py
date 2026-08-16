@@ -50,3 +50,29 @@ def test_company_owner_blank_optional_fields_are_normalized_to_none() -> None:
     assert payload.trade_license_number is None
     assert payload.district is None
     assert payload.registered_address is None
+
+
+def test_company_owner_numeric_username_is_allowed() -> None:
+    payload = ProviderMobileOwnerRegister(
+        owner_type=OwnerType.COMPANY,
+        owner_name="Starline Corporate",
+        mobile="+8801912345678",
+        login_username="20102949",
+        contact_name="Fleet Administrator",
+        declaration_accepted=True,
+    )
+
+    assert payload.login_username == "20102949"
+
+
+def test_company_owner_numeric_prefixed_username_is_normalized() -> None:
+    payload = ProviderMobileOwnerRegister(
+        owner_type=OwnerType.COMPANY,
+        owner_name="Starline Corporate",
+        mobile="+8801912345679",
+        login_username="  20102949.Starline  ",
+        contact_name="Fleet Administrator",
+        declaration_accepted=True,
+    )
+
+    assert payload.login_username == "20102949.starline"
