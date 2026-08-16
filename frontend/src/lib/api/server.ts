@@ -20,6 +20,30 @@ function apiUrl(path: string) {
   return `${serverEnv.apiBaseUrl}${normalizedPath}`
 }
 
+function validationDetailMessage(detail: unknown) {
+  if (!Array.isArray(detail)) return null
+
+  const messages = detail
+    .map((item) => {
+      if (!item || typeof item !== "object") return null
+
+      const record = item as { loc?: unknown; msg?: unknown }
+      if (typeof record.msg !== "string") return null
+
+      const location = Array.isArray(record.loc)
+        ? record.loc
+            .filter((part) => part !== "body")
+            .map((part) => String(part).replaceAll("_", " "))
+            .join(" → ")
+        : ""
+
+      return location ? `${location}: ${record.msg}` : record.msg
+    })
+    .filter((message): message is string => Boolean(message))
+
+  return messages.length ? messages.join("; ") : null
+}
+
 function errorMessage(payload: unknown, fallback: string) {
   if (!payload || typeof payload !== "object" || !("detail" in payload)) {
     return fallback
@@ -28,6 +52,11 @@ function errorMessage(payload: unknown, fallback: string) {
   const detail = payload.detail
   if (typeof detail === "string") {
     return detail
+  }
+
+  const validationMessage = validationDetailMessage(detail)
+  if (validationMessage) {
+    return validationMessage
   }
 
   if (detail && typeof detail === "object" && "message" in detail) {
