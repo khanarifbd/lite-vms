@@ -1,10 +1,11 @@
+import re
 import uuid
 from datetime import date
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.common.enums import OwnerType
-from app.modules.auth.schema import normalize_email, normalize_mobile, normalize_username
+from app.modules.auth.schema import normalize_email, normalize_mobile
 from app.modules.owners.schema import OwnerApplicationRead, OwnerDocumentCreate, OwnerProviderLinkRead
 
 
@@ -92,7 +93,12 @@ class ProviderMobileOwnerRegister(BaseModel):
     @field_validator("login_username")
     @classmethod
     def validate_username(cls, value: str) -> str:
-        return normalize_username(value)
+        normalized = value.strip().lower()
+        if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{2,49}", normalized):
+            raise ValueError(
+                "Username must contain 3-50 lowercase letters, numbers, dots, underscores, or hyphens"
+            )
+        return normalized
 
     @model_validator(mode="after")
     def validate_registration(self) -> "ProviderMobileOwnerRegister":
