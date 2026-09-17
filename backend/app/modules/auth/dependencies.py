@@ -100,6 +100,7 @@ async def get_current_user(
         for _, permission_code in authorization_rows
         if permission_code is not None
     }
+    user._security = security
     user._session_jti = session_jti
     return user
 
