@@ -40,13 +40,13 @@ export function ProviderVehicleRegistrationIdentity({ owners, options, disabled,
         <FormField label="Registered owner name" hint="Enter the owner name exactly as shown on the vehicle registration certificate. This name will appear on the vehicle certificate."><Input name="registered_owner_name" required maxLength={180} disabled={disabled} /></FormField>
         <FormField label="Registration number" hint="Bangladesh registration format; checked globally for duplicates."><Input name="registration_number" required maxLength={80} disabled={disabled} /></FormField>
         <FormField label="Display registration number"><Input name="registration_number_display" maxLength={80} disabled={disabled} /></FormField>
-        <FormField label="Chassis number" hint="Normalized and checked globally for duplicates."><Input name="chassis_number" required maxLength={120} disabled={disabled} /></FormField>
-        <FormField label="Engine number"><Input name="engine_number" maxLength={120} disabled={disabled} /></FormField>
+        <FormField label="Chassis number" hint="Optional. If provided, it is normalized and checked globally for duplicates."><Input name="chassis_number" maxLength={120} disabled={disabled} /></FormField>
+        <FormField label="Engine number" hint="Optional. If provided, it is checked globally for duplicates."><Input name="engine_number" maxLength={120} disabled={disabled} /></FormField>
         <FormField label="Vehicle type"><FormSelect name="vehicle_type" required options={options.vehicle_types} placeholder={optionsLoading ? "Loading vehicle types..." : "Select vehicle type"} disabled={disabled || optionsLoading} /></FormField>
-        <FormField label="Vehicle category"><FormSelect name="vehicle_category" options={options.vehicle_categories} placeholder="Select vehicle category" disabled={disabled || optionsLoading} /></FormField>
-        <FormField label="Usage type"><FormSelect name="usage_type" options={options.usage_types} placeholder="Select usage type" disabled={disabled || optionsLoading} /></FormField>
-        <FormField label="Body type"><FormSelect name="body_type" options={options.body_types} placeholder="Select body type" disabled={disabled || optionsLoading} /></FormField>
-        <FormField label="Fuel type"><FormSelect name="fuel_type" options={options.fuel_types} placeholder="Select fuel type" disabled={disabled || optionsLoading} /></FormField>
+        <FormField label="Vehicle category"><FormSelect name="vehicle_category" options={options.vehicle_categories} value="commercial" placeholder="Select vehicle category" disabled={disabled || optionsLoading} /></FormField>
+        <FormField label="Usage type"><FormSelect name="usage_type" options={options.usage_types} value="passenger" placeholder="Select usage type" disabled={disabled || optionsLoading} /></FormField>
+        <FormField label="Body type"><FormSelect name="body_type" options={options.body_types} value="bus" placeholder="Select body type" disabled={disabled || optionsLoading} /></FormField>
+        <FormField label="Fuel type"><FormSelect name="fuel_type" options={options.fuel_types} value="diesel" placeholder="Select fuel type" disabled={disabled || optionsLoading} /></FormField>
         <FormField label="Brand"><Input name="brand" maxLength={100} disabled={disabled} /></FormField>
         <FormField label="Model"><Input name="model" maxLength={100} disabled={disabled} /></FormField>
         <FormField label="Manufacturing year"><Input name="manufacturing_year" type="number" min={1900} max={2200} disabled={disabled} /></FormField>
