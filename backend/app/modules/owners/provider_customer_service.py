@@ -1,10 +1,11 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enums import (
+    EntityStatus,
     IdentifierType,
     OrganizationStatus,
     OwnerDocumentStatus,
@@ -31,6 +32,11 @@ from app.modules.owners.provider_customer_schema import (
     ProviderOwnerCustomerPage,
     ProviderOwnerCustomerRead,
     ProviderOwnerCustomerSummary,
+    ProviderOwnerOption,
+    ProviderOwnerPortfolioItem,
+    ProviderOwnerPortfolioLink,
+    ProviderOwnerPortfolioOwner,
+    ProviderOwnerPortfolioPage,
 )
 from app.modules.owners.service import (
     build_link_read,
@@ -39,6 +45,7 @@ from app.modules.owners.service import (
 )
 from app.modules.providers.model import VTSProvider
 from app.modules.providers.service import get_provider_for_user
+from app.modules.vehicles.model import Vehicle
 
 
 class ProviderCustomerManagementError(ValueError):
@@ -138,6 +145,170 @@ async def build_provider_customer_summary(
         rejected=counts.get(OwnerProviderLinkStatus.REJECTED, 0),
         ended=counts.get(OwnerProviderLinkStatus.ENDED, 0),
         suspended=counts.get(OwnerProviderLinkStatus.SUSPENDED, 0),
+    )
+
+
+async def list_provider_owner_options(
+    session: AsyncSession,
+    *,
+    provider: VTSProvider,
+    search: str | None,
+    limit: int,
+) -> list[ProviderOwnerOption]:
+    query = (
+        select(
+            VehicleOwner.id,
+            VehicleOwner.name,
+            VehicleOwner.owner_code,
+            VehicleOwner.nid_or_registration,
+            VehicleOwner.phone,
+        )
+        .join(
+            VTSProviderOwnerLink,
+            VTSProviderOwnerLink.owner_id == VehicleOwner.id,
+        )
+        .where(
+            VTSProviderOwnerLink.provider_id == provider.id,
+            VTSProviderOwnerLink.status == OwnerProviderLinkStatus.ACTIVE,
+            VehicleOwner.verification_status == OwnerVerificationStatus.APPROVED,
+            VehicleOwner.status == EntityStatus.ACTIVE,
+        )
+    )
+    if search and search.strip():
+        pattern = f"%{search.strip().lower()}%"
+        query = query.where(
+            or_(
+                func.lower(VehicleOwner.name).like(pattern),
+                func.lower(VehicleOwner.owner_code).like(pattern),
+                func.lower(VehicleOwner.nid_or_registration).like(pattern),
+                func.lower(VehicleOwner.phone).like(pattern),
+            )
+        )
+
+    rows = (
+        await session.execute(
+            query.order_by(VehicleOwner.name, VehicleOwner.id).limit(limit)
+        )
+    ).all()
+    return [
+        ProviderOwnerOption(
+            id=row.id,
+            owner_name=row.name,
+            owner_code=row.owner_code,
+            identity_reference=row.nid_or_registration,
+            phone=row.phone,
+        )
+        for row in rows
+    ]
+
+
+async def list_provider_owner_portfolio(
+    session: AsyncSession,
+    *,
+    provider: VTSProvider,
+    link_status: OwnerProviderLinkStatus | None,
+    search: str | None,
+    offset: int,
+    limit: int,
+) -> ProviderOwnerPortfolioPage:
+    vehicle_counts = (
+        select(
+            Vehicle.owner_id.label("owner_id"),
+            func.count(Vehicle.id).label("total_vehicles"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Vehicle.status == EntityStatus.ACTIVE, 1),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("active_vehicles"),
+        )
+        .group_by(Vehicle.owner_id)
+        .subquery()
+    )
+
+    query = (
+        select(
+            VTSProviderOwnerLink.id.label("link_id"),
+            VTSProviderOwnerLink.status.label("link_status"),
+            VTSProviderOwnerLink.created_at.label("link_created_at"),
+            VehicleOwner.id.label("owner_id"),
+            VehicleOwner.application_number,
+            VehicleOwner.owner_code,
+            VehicleOwner.owner_type,
+            VehicleOwner.name.label("owner_name"),
+            VehicleOwner.nid_or_registration.label("identity_reference"),
+            VehicleOwner.email,
+            VehicleOwner.phone,
+            VehicleOwner.district,
+            VehicleOwner.verification_status,
+            func.coalesce(vehicle_counts.c.total_vehicles, 0).label("total_vehicles"),
+            func.coalesce(vehicle_counts.c.active_vehicles, 0).label("active_vehicles"),
+        )
+        .join(VehicleOwner, VehicleOwner.id == VTSProviderOwnerLink.owner_id)
+        .outerjoin(vehicle_counts, vehicle_counts.c.owner_id == VehicleOwner.id)
+        .where(VTSProviderOwnerLink.provider_id == provider.id)
+    )
+    count_query = (
+        select(func.count(VTSProviderOwnerLink.id))
+        .join(VehicleOwner, VehicleOwner.id == VTSProviderOwnerLink.owner_id)
+        .where(VTSProviderOwnerLink.provider_id == provider.id)
+    )
+
+    if link_status is not None:
+        query = query.where(VTSProviderOwnerLink.status == link_status)
+        count_query = count_query.where(VTSProviderOwnerLink.status == link_status)
+    if search and search.strip():
+        pattern = f"%{search.strip().lower()}%"
+        condition = or_(
+            func.lower(VehicleOwner.name).like(pattern),
+            func.lower(VehicleOwner.owner_code).like(pattern),
+            func.lower(VehicleOwner.application_number).like(pattern),
+            func.lower(VehicleOwner.nid_or_registration).like(pattern),
+            func.lower(VehicleOwner.email).like(pattern),
+            func.lower(VehicleOwner.phone).like(pattern),
+        )
+        query = query.where(condition)
+        count_query = count_query.where(condition)
+
+    rows = (
+        await session.execute(
+            query.order_by(VTSProviderOwnerLink.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+    ).all()
+    total = int(await session.scalar(count_query) or 0)
+    return ProviderOwnerPortfolioPage(
+        items=[
+            ProviderOwnerPortfolioItem(
+                link=ProviderOwnerPortfolioLink(
+                    id=row.link_id,
+                    status=row.link_status,
+                ),
+                owner=ProviderOwnerPortfolioOwner(
+                    id=row.owner_id,
+                    application_number=row.application_number,
+                    owner_code=row.owner_code,
+                    owner_type=row.owner_type,
+                    owner_name=row.owner_name,
+                    identity_or_registration_reference=row.identity_reference,
+                    email=row.email,
+                    phone=row.phone,
+                    district=row.district,
+                    verification_status=row.verification_status,
+                    total_vehicles=int(row.total_vehicles or 0),
+                    active_vehicles=int(row.active_vehicles or 0),
+                ),
+                can_manage=row.link_status == OwnerProviderLinkStatus.ACTIVE,
+            )
+            for row in rows
+        ],
+        total=total,
+        offset=offset,
+        limit=limit,
     )
 
 
