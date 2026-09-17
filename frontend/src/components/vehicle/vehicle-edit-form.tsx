@@ -109,8 +109,8 @@ export function VehicleEditForm({ vehicle, apiBase, detailsBase, mode }: Vehicle
     const registeredOwnerName = readText(data, "registered_owner_name")
     const chassisNumber = readText(data, "chassis_number")
     const vehicleType = readText(data, "vehicle_type")
-    if (!registrationNumber || !registeredOwnerName || !chassisNumber || !vehicleType) {
-      throw new Error("Registered owner name, registration number, chassis number, and vehicle type are required.")
+    if (!registrationNumber || !registeredOwnerName || !vehicleType) {
+      throw new Error("Registered owner name, registration number, and vehicle type are required.")
     }
 
     return {
@@ -302,7 +302,7 @@ export function VehicleEditForm({ vehicle, apiBase, detailsBase, mode }: Vehicle
               </>
             )}
             <Field label="Chassis number" hint="Checked against the global vehicle registry.">
-              <Input name="chassis_number" required maxLength={120} defaultValue={vehicle.chassis_number} />
+              <Input name="chassis_number" maxLength={120} defaultValue={vehicle.chassis_number ?? ""} />
             </Field>
             <Field label="Engine number">
               <Input name="engine_number" maxLength={120} defaultValue={vehicle.engine_number || ""} />
