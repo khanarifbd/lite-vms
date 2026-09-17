@@ -123,7 +123,8 @@ export function VehicleRegistrationForm({ mode, apiBase, registryHref, owners = 
   }, [])
 
   async function checkIdentity(payload: ProviderVehicleRegistrationPayload) {
-    const params = new URLSearchParams({ registration_number: payload.registration_number, chassis_number: payload.chassis_number })
+    const params = new URLSearchParams({ registration_number: payload.registration_number })
+    if (payload.chassis_number) params.set("chassis_number", payload.chassis_number)
     if (payload.engine_number) params.set("engine_number", payload.engine_number)
     const response = await fetch(`${apiBase}/identity-check?${params.toString()}`)
     if (!response.ok) throw new Error(await responseMessage(response, "Unable to validate vehicle identity."))
@@ -142,7 +143,7 @@ export function VehicleRegistrationForm({ mode, apiBase, registryHref, owners = 
     const registeredOwnerName = readText(data, "registered_owner_name")
     const chassisNumber = readText(data, "chassis_number")
     const vehicleType = readText(data, "vehicle_type")
-    if (!ownerId || !registrationNumber || !registeredOwnerName || !chassisNumber || !vehicleType) throw new Error("Owner, registered owner name, registration number, chassis number, and vehicle type are required.")
+    if (!ownerId || !registrationNumber || !registeredOwnerName || !vehicleType) throw new Error("Owner, registered owner name, registration number, and vehicle type are required.")
     return {
       owner_id: ownerId,
       registration_number: registrationNumber,
@@ -233,7 +234,7 @@ export function VehicleRegistrationForm({ mode, apiBase, registryHref, owners = 
           <Field label="Registered owner name" hint="Enter the owner name exactly as shown on the vehicle registration certificate. This name will appear on the vehicle certificate."><Input name="registered_owner_name" required maxLength={180} defaultValue={mode === "owner" ? fixedOwner?.owner_name : ""} disabled={draft !== null} /></Field>
           <Field label="Registration number" hint="Bangladesh registration format; checked globally for duplicates."><Input name="registration_number" required maxLength={80} disabled={draft !== null} /></Field>
           <Field label="Display registration number"><Input name="registration_number_display" maxLength={80} disabled={draft !== null} /></Field>
-          <Field label="Chassis number" hint="Normalized and checked globally for duplicates."><Input name="chassis_number" required maxLength={120} disabled={draft !== null} /></Field>
+          <Field label="Chassis number" hint="Normalized and checked globally for duplicates."><Input name="chassis_number" maxLength={120} disabled={draft !== null} /></Field>
           <Field label="Engine number"><Input name="engine_number" maxLength={120} disabled={draft !== null} /></Field>
           <Field label="Vehicle type" hint="Managed by Super Admin in System Settings."><SelectField name="vehicle_type" required options={options.vehicle_types} placeholder={optionsLoading ? "Loading vehicle types..." : "Select vehicle type"} disabled={controlsDisabled} /></Field>
           <Field label="Vehicle category"><SelectField name="vehicle_category" options={options.vehicle_categories} placeholder="Select vehicle category" disabled={controlsDisabled} /></Field>
