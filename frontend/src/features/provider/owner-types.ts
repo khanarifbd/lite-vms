@@ -156,6 +156,43 @@ export type ProviderOwnerPage = {
   limit: number
 }
 
+export type ProviderOwnerOption = {
+  id: string
+  owner_name: string
+  owner_code: string | null
+  identity_reference: string
+  phone: string | null
+}
+
+export type ProviderOwnerPortfolioItem = {
+  link: {
+    id: string
+    status: OwnerProviderLinkStatus
+  }
+  owner: {
+    id: string
+    application_number: string | null
+    owner_code: string | null
+    owner_type: OwnerType
+    owner_name: string
+    identity_or_registration_reference: string
+    email: string | null
+    phone: string | null
+    district: string | null
+    verification_status: OwnerVerificationStatus
+    total_vehicles: number
+    active_vehicles: number
+  }
+  can_manage: boolean
+}
+
+export type ProviderOwnerPortfolioPage = {
+  items: ProviderOwnerPortfolioItem[]
+  total: number
+  offset: number
+  limit: number
+}
+
 export type ProviderOwnerSummary = {
   provider_id: string
   total: number
