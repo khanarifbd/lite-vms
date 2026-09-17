@@ -3,9 +3,10 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.common.enums import IdentifierType, OwnerVerificationStatus
+from app.common.enums import IdentifierType, OwnerType, OwnerVerificationStatus
 from app.modules.auth.admin_schema import UserAdminRead
 from app.modules.auth.schema import normalize_email, normalize_mobile, normalize_username
+from app.modules.owners.enums import OwnerProviderLinkStatus
 from app.modules.owners.schema import (
     OwnerApplicationRead,
     OwnerDocumentCreate,
@@ -22,6 +23,47 @@ class ProviderOwnerCustomerSummary(BaseModel):
     rejected: int
     ended: int
     suspended: int
+
+
+class ProviderOwnerOption(BaseModel):
+    id: uuid.UUID
+    owner_name: str
+    owner_code: str | None
+    identity_reference: str
+    phone: str | None
+
+
+class ProviderOwnerPortfolioLink(BaseModel):
+    id: uuid.UUID
+    status: OwnerProviderLinkStatus
+
+
+class ProviderOwnerPortfolioOwner(BaseModel):
+    id: uuid.UUID
+    application_number: str | None
+    owner_code: str | None
+    owner_type: OwnerType
+    owner_name: str
+    identity_or_registration_reference: str
+    email: str | None
+    phone: str | None
+    district: str | None
+    verification_status: OwnerVerificationStatus
+    total_vehicles: int
+    active_vehicles: int
+
+
+class ProviderOwnerPortfolioItem(BaseModel):
+    link: ProviderOwnerPortfolioLink
+    owner: ProviderOwnerPortfolioOwner
+    can_manage: bool
+
+
+class ProviderOwnerPortfolioPage(BaseModel):
+    items: list[ProviderOwnerPortfolioItem]
+    total: int
+    offset: int
+    limit: int
 
 
 class ProviderOwnerCustomerRead(BaseModel):
