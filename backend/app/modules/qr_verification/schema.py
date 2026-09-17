@@ -103,7 +103,7 @@ class PublicCertificateVerification(BaseModel):
     model: str | None
     color: str | None
     manufacturing_year: int | None
-    chassis_number: str
+    chassis_number: str | None
     engine_number: str | None
     vehicle_verification_status: str
     vehicle_status: str
