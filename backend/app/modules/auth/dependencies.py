@@ -6,18 +6,20 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common.enums import UserRole, UserStatus
+from app.common.enums import MembershipStatus, UserRole, UserStatus
 from app.core.config import settings
 from app.core.database import get_session
 from app.modules.auth.model import User, UserSecurity, UserSession
 from app.modules.auth.security import decode_access_token
-from app.modules.auth.service import get_user_by_public_id
-from app.modules.iam.service import (
-    get_active_permission_codes_for_user,
-    get_active_role_codes_for_user,
+from app.modules.iam.model import (
+    MembershipRole,
+    OrganizationMembership,
+    Permission,
+    Role,
+    RolePermission,
 )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.api_v1_prefix}/auth/login")
@@ -46,29 +48,58 @@ async def get_current_user(
     except (jwt.InvalidTokenError, ValueError, KeyError, TypeError):
         raise credentials_error from None
 
-    user = await get_user_by_public_id(session, user_public_id)
-    if user is None or user.deleted_at is not None:
-        raise credentials_error
-    security = await session.scalar(select(UserSecurity).where(UserSecurity.user_id == user.id))
-    login_session = await session.scalar(
-        select(UserSession).where(
-            UserSession.token_jti == session_jti,
-            UserSession.user_id == user.id,
+    identity_row = (
+        await session.execute(
+            select(User, UserSecurity, UserSession)
+            .join(UserSecurity, UserSecurity.user_id == User.id)
+            .join(
+                UserSession,
+                and_(
+                    UserSession.user_id == User.id,
+                    UserSession.token_jti == session_jti,
+                ),
+            )
+            .where(User.public_id == user_public_id)
         )
-    )
+    ).one_or_none()
+    if identity_row is None:
+        raise credentials_error
+
+    user, security, login_session = identity_row
     now = datetime.now(UTC)
     if (
-        security is None
+        user.deleted_at is not None
         or security.token_version != token_version
-        or login_session is None
         or login_session.revoked_at is not None
         or as_utc(login_session.expires_at) <= now
         or login_session.token_version != token_version
     ):
         raise credentials_error
 
-    user._role_codes = await get_active_role_codes_for_user(session, user.id)
-    user._permission_codes = await get_active_permission_codes_for_user(session, user.id)
+    authorization_rows = (
+        await session.execute(
+            select(Role.code, Permission.code)
+            .select_from(OrganizationMembership)
+            .join(
+                MembershipRole,
+                MembershipRole.membership_id == OrganizationMembership.id,
+            )
+            .join(Role, Role.id == MembershipRole.role_id)
+            .outerjoin(RolePermission, RolePermission.role_id == Role.id)
+            .outerjoin(Permission, Permission.id == RolePermission.permission_id)
+            .where(
+                OrganizationMembership.user_id == user.id,
+                OrganizationMembership.status == MembershipStatus.ACTIVE,
+                Role.is_active.is_(True),
+            )
+        )
+    ).all()
+    user._role_codes = {role_code for role_code, _ in authorization_rows}
+    user._permission_codes = {
+        permission_code
+        for _, permission_code in authorization_rows
+        if permission_code is not None
+    }
     user._session_jti = session_jti
     return user
 
