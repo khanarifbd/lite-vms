@@ -1,12 +1,13 @@
 import "server-only"
 
 import { cookies } from "next/headers"
+import { cache } from "react"
 
 import { serverEnv } from "@/config/server-env"
 import { AUTH_COOKIE_NAME } from "@/lib/auth/cookies"
 import type { AuthUser } from "@/lib/auth/types"
 
-export async function getAuthenticatedUser(): Promise<AuthUser | null> {
+export const getAuthenticatedUser = cache(async (): Promise<AuthUser | null> => {
   const cookieStore = await cookies()
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value
 
@@ -31,4 +32,4 @@ export async function getAuthenticatedUser(): Promise<AuthUser | null> {
   } catch {
     return null
   }
-}
+})
