@@ -19,6 +19,8 @@ from app.modules.owners.provider_customer_schema import (
     ProviderOwnerCustomerPage,
     ProviderOwnerCustomerRead,
     ProviderOwnerCustomerSummary,
+    ProviderOwnerOption,
+    ProviderOwnerPortfolioPage,
 )
 from app.modules.owners.provider_customer_service import (
     ProviderCustomerManagementError,
@@ -26,6 +28,8 @@ from app.modules.owners.provider_customer_service import (
     build_provider_customer_summary,
     get_provider_customer_link,
     list_provider_customers,
+    list_provider_owner_options,
+    list_provider_owner_portfolio,
     require_approved_provider,
     update_provider_customer,
 )
@@ -35,6 +39,12 @@ router = APIRouter(prefix="/providers/me/owners", tags=["VTS Provider Customers"
 PROVIDER_OWNER_READ_ROLES = (
     UserRole.VTS_ADMIN,
     UserRole.VTS_OPERATOR,
+    UserRole.VTS_VIEWER,
+)
+PROVIDER_OWNER_OPTION_ROLES = (
+    UserRole.VTS_ADMIN,
+    UserRole.VTS_OPERATOR,
+    UserRole.VTS_TECHNICAL,
     UserRole.VTS_VIEWER,
 )
 PROVIDER_OWNER_MANAGE_ROLES = (
@@ -70,6 +80,45 @@ async def read_customer_summary(
 ) -> ProviderOwnerCustomerSummary:
     provider = await current_provider_or_error(session, actor)
     return await build_provider_customer_summary(session, provider=provider)
+
+
+@router.get("/options", response_model=list[ProviderOwnerOption])
+async def read_provider_owner_options(
+    actor: Annotated[User, Depends(require_roles(*PROVIDER_OWNER_OPTION_ROLES))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    search: Annotated[str | None, Query(max_length=180)] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 200,
+) -> list[ProviderOwnerOption]:
+    provider = await current_provider_or_error(session, actor)
+    return await list_provider_owner_options(
+        session,
+        provider=provider,
+        search=search,
+        limit=limit,
+    )
+
+
+@router.get("/portfolio", response_model=ProviderOwnerPortfolioPage)
+async def read_provider_owner_portfolio(
+    actor: Annotated[User, Depends(require_roles(*PROVIDER_OWNER_READ_ROLES))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    link_status: Annotated[
+        OwnerProviderLinkStatus | None,
+        Query(alias="status"),
+    ] = None,
+    search: Annotated[str | None, Query(max_length=180)] = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> ProviderOwnerPortfolioPage:
+    provider = await current_provider_or_error(session, actor)
+    return await list_provider_owner_portfolio(
+        session,
+        provider=provider,
+        link_status=link_status,
+        search=search,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.get("", response_model=ProviderOwnerCustomerPage)
