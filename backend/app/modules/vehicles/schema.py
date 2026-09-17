@@ -172,7 +172,7 @@ class VehicleRead(BaseModel):
     registration_number: str
     registration_number_display: str | None
     registered_owner_name: str
-    chassis_number: str
+    chassis_number: str | None
     engine_number: str | None
     vehicle_type: str
     vehicle_category: str | None
