@@ -16,8 +16,8 @@ export function ProviderVehicleEditIdentity({ vehicle, options }: { vehicle: Veh
         <FormField label="Registration number" hint="Checked against the global vehicle registry."><Input name="registration_number" required maxLength={80} defaultValue={vehicle.registration_number} /></FormField>
         <FormField label="Display registration number"><Input name="registration_number_display" maxLength={80} defaultValue={vehicle.registration_number_display || ""} /></FormField>
       </>}
-      <FormField label="Chassis number"><Input name="chassis_number" required maxLength={120} defaultValue={vehicle.chassis_number} /></FormField>
-      <FormField label="Engine number"><Input name="engine_number" maxLength={120} defaultValue={vehicle.engine_number || ""} /></FormField>
+      <FormField label="Chassis number" hint="Optional. If provided, it is normalized and checked globally for duplicates."><Input name="chassis_number" maxLength={120} defaultValue={vehicle.chassis_number || ""} /></FormField>
+      <FormField label="Engine number" hint="Optional. If provided, it is checked globally for duplicates."><Input name="engine_number" maxLength={120} defaultValue={vehicle.engine_number || ""} /></FormField>
       <FormField label="Vehicle type"><FormSelect name="vehicle_type" required options={options.vehicle_types} value={vehicle.vehicle_type} placeholder="Select vehicle type" /></FormField>
       <FormField label="Vehicle category"><FormSelect name="vehicle_category" options={options.vehicle_categories} value={vehicle.vehicle_category} placeholder="Select vehicle category" /></FormField>
       <FormField label="Usage type"><FormSelect name="usage_type" options={options.usage_types} value={vehicle.usage_type} placeholder="Select usage type" /></FormField>
