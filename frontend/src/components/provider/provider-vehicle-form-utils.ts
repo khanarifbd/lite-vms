@@ -43,7 +43,7 @@ export function buildProviderRegistrationPayload(data: FormData, submitForReview
   const registeredOwnerName = readText(data, "registered_owner_name")
   const chassisNumber = readText(data, "chassis_number")
   const vehicleType = readText(data, "vehicle_type")
-  if (!ownerId || !registrationNumber || !registeredOwnerName || !chassisNumber || !vehicleType) throw new Error("Owner, registered owner name, registration number, chassis number, and vehicle type are required.")
+  if (!ownerId || !registrationNumber || !registeredOwnerName || !vehicleType) throw new Error("Owner, registered owner name, registration number, and vehicle type are required.")
   return {
     owner_id: ownerId, registration_number: registrationNumber,
     registration_number_display: readText(data, "registration_number_display"), registered_owner_name: registeredOwnerName,
