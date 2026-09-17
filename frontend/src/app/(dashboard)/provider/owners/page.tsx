@@ -2,7 +2,7 @@ import { LockKeyhole, Plus, ShieldAlert, UsersRound } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
-import { ProviderOwnerManagement } from "@/components/provider/provider-owner-management"
+import { ProviderOwnerPortfolioManagement } from "@/components/provider/provider-owner-portfolio-management"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -107,10 +107,9 @@ export default async function ProviderOwnersPage() {
             </Button>
           </div>
         ) : null}
-        <ProviderOwnerManagement
+        <ProviderOwnerPortfolioManagement
           initialPage={owners}
           summary={summary}
-          canRegister={false}
           canManage={userHasAnyRole(user, [USER_ROLES.vtsAdmin, USER_ROLES.vtsOperator])}
         />
       </div>
