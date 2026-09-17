@@ -8,7 +8,7 @@ export function buildProviderVehicleUpdate(data: FormData, vehicle: VehicleDetai
   const ownerName = readText(data, "registered_owner_name")
   const chassis = readText(data, "chassis_number")
   const vehicleType = readText(data, "vehicle_type")
-  if (!registrationNumber || !ownerName || !chassis || !vehicleType) throw new Error("Registered owner name, registration number, chassis number, and vehicle type are required.")
+  if (!registrationNumber || !ownerName || !vehicleType) throw new Error("Registered owner name, registration number, and vehicle type are required.")
   return {
     registration_number: registrationNumber,
     registration_number_display: imported ? readText(data, "vehicle_display_name") : readText(data, "registration_number_display"),
