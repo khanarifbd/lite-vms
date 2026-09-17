@@ -57,19 +57,21 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   return <div className="space-y-2"><Label>{label}</Label>{children}{hint ? <p className="text-xs leading-5 text-muted-foreground">{hint}</p> : null}</div>
 }
 
-function SelectField({ name, options, placeholder, required = false, disabled = false }: {
+function SelectField({ name, options, placeholder, required = false, disabled = false, defaultValue = "" }: {
   name: string
   options: RegistrationOption[]
   placeholder: string
   required?: boolean
   disabled?: boolean
+  defaultValue?: string
 }) {
   return (
     <select
+      key={`${name}-${options.length}`}
       name={name}
       required={required}
       disabled={disabled}
-      defaultValue=""
+      defaultValue={defaultValue}
       className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
     >
       <option value="">{placeholder}</option>
@@ -237,10 +239,10 @@ export function VehicleRegistrationForm({ mode, apiBase, registryHref, owners = 
           <Field label="Chassis number" hint="Normalized and checked globally for duplicates."><Input name="chassis_number" maxLength={120} disabled={draft !== null} /></Field>
           <Field label="Engine number"><Input name="engine_number" maxLength={120} disabled={draft !== null} /></Field>
           <Field label="Vehicle type" hint="Managed by Super Admin in System Settings."><SelectField name="vehicle_type" required options={options.vehicle_types} placeholder={optionsLoading ? "Loading vehicle types..." : "Select vehicle type"} disabled={controlsDisabled} /></Field>
-          <Field label="Vehicle category"><SelectField name="vehicle_category" options={options.vehicle_categories} placeholder="Select vehicle category" disabled={controlsDisabled} /></Field>
-          <Field label="Usage type"><SelectField name="usage_type" options={options.usage_types} placeholder="Select usage type" disabled={controlsDisabled} /></Field>
-          <Field label="Body type"><SelectField name="body_type" options={options.body_types} placeholder="Select body type" disabled={controlsDisabled} /></Field>
-          <Field label="Fuel type"><SelectField name="fuel_type" options={options.fuel_types} placeholder="Select fuel type" disabled={controlsDisabled} /></Field>
+          <Field label="Vehicle category"><SelectField name="vehicle_category" options={options.vehicle_categories} placeholder="Select vehicle category" disabled={controlsDisabled} defaultValue={mode === "provider" ? "commercial" : ""} /></Field>
+          <Field label="Usage type"><SelectField name="usage_type" options={options.usage_types} placeholder="Select usage type" disabled={controlsDisabled} defaultValue={mode === "provider" ? "passenger" : ""} /></Field>
+          <Field label="Body type"><SelectField name="body_type" options={options.body_types} placeholder="Select body type" disabled={controlsDisabled} defaultValue={mode === "provider" ? "bus" : ""} /></Field>
+          <Field label="Fuel type"><SelectField name="fuel_type" options={options.fuel_types} placeholder="Select fuel type" disabled={controlsDisabled} defaultValue={mode === "provider" ? "diesel" : ""} /></Field>
           <Field label="Brand"><Input name="brand" maxLength={100} disabled={draft !== null} /></Field>
           <Field label="Model"><Input name="model" maxLength={100} disabled={draft !== null} /></Field>
           <Field label="Manufacturing year"><Input name="manufacturing_year" type="number" min={1900} max={2200} disabled={draft !== null} /></Field>
