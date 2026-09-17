@@ -11,7 +11,7 @@ class ProviderVehicleRegistrationCreate(BaseModel):
     registration_number: str = Field(min_length=3, max_length=80)
     registration_number_display: str | None = Field(default=None, max_length=80)
     registered_owner_name: str | None = Field(default=None, max_length=180)
-    chassis_number: str = Field(min_length=3, max_length=120)
+    chassis_number: str | None = Field(default=None, min_length=3, max_length=120)
     engine_number: str | None = Field(default=None, max_length=120)
     vehicle_type: str = Field(min_length=2, max_length=60)
     vehicle_category: str | None = Field(default=None, max_length=80)
