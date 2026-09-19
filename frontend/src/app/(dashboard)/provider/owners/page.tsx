@@ -150,6 +150,7 @@ export default async function ProviderOwnersPage({ searchParams }: ProviderOwner
     <div className="px-3 py-4 sm:px-5 lg:px-6 lg:py-5">
       <div className="mx-auto max-w-7xl">
         <ProviderOwnerPortfolioManagement
+          key={`${page}:${search}:${status}:${limit}`}
           initialPage={owners}
           summary={summary}
           canRegister={canRegister}
