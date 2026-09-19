@@ -211,24 +211,6 @@ async def list_provider_owner_portfolio(
     offset: int,
     limit: int,
 ) -> ProviderOwnerPortfolioPage:
-    vehicle_counts = (
-        select(
-            Vehicle.owner_id.label("owner_id"),
-            func.count(Vehicle.id).label("total_vehicles"),
-            func.coalesce(
-                func.sum(
-                    case(
-                        (Vehicle.status == EntityStatus.ACTIVE, 1),
-                        else_=0,
-                    )
-                ),
-                0,
-            ).label("active_vehicles"),
-        )
-        .group_by(Vehicle.owner_id)
-        .subquery()
-    )
-
     query = (
         select(
             VTSProviderOwnerLink.id.label("link_id"),
@@ -244,11 +226,8 @@ async def list_provider_owner_portfolio(
             VehicleOwner.phone,
             VehicleOwner.district,
             VehicleOwner.verification_status,
-            func.coalesce(vehicle_counts.c.total_vehicles, 0).label("total_vehicles"),
-            func.coalesce(vehicle_counts.c.active_vehicles, 0).label("active_vehicles"),
         )
         .join(VehicleOwner, VehicleOwner.id == VTSProviderOwnerLink.owner_id)
-        .outerjoin(vehicle_counts, vehicle_counts.c.owner_id == VehicleOwner.id)
         .where(VTSProviderOwnerLink.provider_id == provider.id)
     )
     count_query = (
@@ -280,6 +259,28 @@ async def list_provider_owner_portfolio(
             .limit(limit)
         )
     ).all()
+    # Aggregate fleet counts only for the owners in the current page. Grouping all
+    # national vehicles before filtering by provider would turn this into a full
+    # registry scan as the platform grows.
+    owner_ids = [row.owner_id for row in rows]
+    fleet_counts: dict[uuid.UUID, tuple[int, int]] = {}
+    if owner_ids:
+        count_rows = (
+            await session.execute(
+                select(
+                    Vehicle.owner_id,
+                    func.count(Vehicle.id),
+                    func.sum(case((Vehicle.status == EntityStatus.ACTIVE, 1), else_=0)),
+                )
+                .where(Vehicle.owner_id.in_(owner_ids))
+                .group_by(Vehicle.owner_id)
+            )
+        ).all()
+        fleet_counts = {
+            owner_id: (int(total or 0), int(active or 0))
+            for owner_id, total, active in count_rows
+        }
+
     total = int(await session.scalar(count_query) or 0)
     return ProviderOwnerPortfolioPage(
         items=[
@@ -299,8 +300,8 @@ async def list_provider_owner_portfolio(
                     phone=row.phone,
                     district=row.district,
                     verification_status=row.verification_status,
-                    total_vehicles=int(row.total_vehicles or 0),
-                    active_vehicles=int(row.active_vehicles or 0),
+                    total_vehicles=fleet_counts.get(row.owner_id, (0, 0))[0],
+                    active_vehicles=fleet_counts.get(row.owner_id, (0, 0))[1],
                 ),
                 can_manage=row.link_status == OwnerProviderLinkStatus.ACTIVE,
             )
