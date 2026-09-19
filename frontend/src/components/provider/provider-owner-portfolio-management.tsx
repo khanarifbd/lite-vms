@@ -4,24 +4,28 @@ import {
   Building2,
   CheckCircle2,
   Download,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   FileText,
   Loader2,
+  Plus,
   Pencil,
   Search,
   UserRound,
   UsersRound,
   XCircle,
 } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { FormEvent, useEffect, useRef, useState } from "react"
+import { FormEvent, useState } from "react"
 import { toast } from "sonner"
 
 import { StatusBadge } from "@/components/dashboard/status-badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -168,11 +172,9 @@ function Field({
 function EditOwnerDialog({
   target,
   onOpenChange,
-  onSaved,
 }: {
   target: ProviderOwnerCustomer | null
   onOpenChange: (open: boolean) => void
-  onSaved: () => void
 }) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
@@ -208,7 +210,6 @@ function EditOwnerDialog({
           : "Owner details updated"
       )
       onOpenChange(false)
-      onSaved()
       router.refresh()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to update the owner.")
@@ -267,103 +268,61 @@ function EditOwnerDialog({
   )
 }
 
+type OwnerFilters = { search: string; status: string; limit: number }
+type PaginationItem = number | "ellipsis"
+
+const linkStatuses = [
+  ["active", "Active"],
+  ["pending_owner_approval", "Owner approval due"],
+  ["pending_provider_approval", "Provider approval due"],
+  ["rejected", "Rejected"],
+  ["suspended", "Suspended"],
+  ["ended", "Ended"],
+] as const
+
+function ownerPageHref(page: number, filters: OwnerFilters) {
+  const params = new URLSearchParams()
+  if (page > 1) params.set("page", String(page))
+  if (filters.search) params.set("search", filters.search)
+  if (filters.status) params.set("status", filters.status)
+  if (filters.limit !== 25) params.set("limit", String(filters.limit))
+  const query = params.toString()
+  return query ? `/provider/owners?${query}` : "/provider/owners"
+}
+
+function paginationItems(currentPage: number, pageCount: number): PaginationItem[] {
+  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index + 1)
+  const items: PaginationItem[] = [1]
+  const start = Math.max(2, currentPage - 2)
+  const end = Math.min(pageCount - 1, currentPage + 2)
+  if (start > 2) items.push("ellipsis")
+  for (let page = start; page <= end; page += 1) items.push(page)
+  if (end < pageCount - 1) items.push("ellipsis")
+  items.push(pageCount)
+  return items
+}
+
 export function ProviderOwnerPortfolioManagement({
-  initialPage,
-  summary,
-  canManage,
+  initialPage, summary, canManage, canRegister, filters,
 }: {
   initialPage: ProviderOwnerPortfolioPage
   summary: ProviderOwnerSummary
   canManage: boolean
+  canRegister: boolean
+  filters: OwnerFilters
 }) {
   const router = useRouter()
-  const [search, setSearch] = useState("")
-  const [query, setQuery] = useState({
-    search: "",
-    status: "all",
-    offset: 0,
-    limit: initialPage.limit,
-  })
-  const [pageData, setPageData] = useState(initialPage)
-  const [loadingPage, setLoadingPage] = useState(false)
-  const [pageError, setPageError] = useState<string | null>(null)
-  const [reloadCount, setReloadCount] = useState(0)
-  const isInitialRender = useRef(true)
   const [details, setDetails] = useState<ProviderOwnerCustomer | null>(null)
   const [editing, setEditing] = useState<ProviderOwnerCustomer | null>(null)
   const [loadingAction, setLoadingAction] = useState<string | null>(null)
   const [responding, setResponding] = useState<string | null>(null)
 
-  // FastAPI scopes, filters, counts and paginates the full provider-linked registry.
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const value = search.trim()
-      setQuery((current) =>
-        current.search === value ? current : { ...current, search: value, offset: 0 }
-      )
-    }, 350)
-    return () => window.clearTimeout(timer)
-  }, [search])
-
-  useEffect(() => {
-    if (isInitialRender.current) {
-      isInitialRender.current = false
-      return
-    }
-
-    const controller = new AbortController()
-    const params = new URLSearchParams({
-      offset: String(query.offset),
-      limit: String(query.limit),
-    })
-    if (query.search) params.set("search", query.search)
-    if (query.status !== "all") params.set("status", query.status)
-
-    setLoadingPage(true)
-    setPageError(null)
-    void fetch(`/api/provider/owners/portfolio?${params.toString()}`, {
-      signal: controller.signal,
-      cache: "no-store",
-    })
-      .then((response) => parseResponse<ProviderOwnerPortfolioPage>(response))
-      .then((result) => {
-        if (controller.signal.aborted) return
-        if (!result.items.length && result.total > 0 && query.offset > 0) {
-          // Link removal may leave the last page empty.
-          setQuery((current) => ({
-            ...current,
-            offset: Math.floor((result.total - 1) / current.limit) * current.limit,
-          }))
-          return
-        }
-        setPageData(result)
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setPageError(error instanceof Error ? error.message : "Unable to load vehicle owners.")
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoadingPage(false)
-      })
-
-    return () => controller.abort()
-  }, [query, reloadCount])
-
-  const totalPages = Math.max(1, Math.ceil(pageData.total / pageData.limit))
-  const currentPage = Math.floor(pageData.offset / pageData.limit) + 1
-  const firstRecord = pageData.total ? pageData.offset + 1 : 0
-  const lastRecord = Math.min(pageData.offset + pageData.items.length, pageData.total)
-  const firstVisiblePage = Math.max(1, Math.min(currentPage - 2, totalPages - 4))
-  const visiblePages = Array.from(
-    { length: Math.min(5, totalPages) },
-    (_, index) => firstVisiblePage + index
-  )
-  const navigateToPage = (nextPage: number) => {
-    if (loadingPage || nextPage < 1 || nextPage > totalPages || nextPage === currentPage) return
-    setQuery((current) => ({ ...current, offset: (nextPage - 1) * current.limit }))
-  }
-  const refreshCurrentPage = () => setReloadCount((value) => value + 1)
+  const totalPages = Math.max(1, Math.ceil(initialPage.total / initialPage.limit))
+  const currentPage = Math.floor(initialPage.offset / initialPage.limit) + 1
+  const firstRecord = initialPage.total ? initialPage.offset + 1 : 0
+  const lastRecord = Math.min(initialPage.offset + initialPage.items.length, initialPage.total)
+  const visiblePages = paginationItems(currentPage, totalPages)
+  const hasFilters = Boolean(filters.search || filters.status)
 
   const loadDetails = async (
     item: ProviderOwnerPortfolioItem,
@@ -398,7 +357,6 @@ export function ProviderOwnerPortfolioManagement({
       )
       toast.success(decision === "approve" ? "Owner link approved" : "Owner link rejected")
       setDetails(null)
-      refreshCurrentPage()
       router.refresh()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to update the link.")
@@ -409,101 +367,114 @@ export function ProviderOwnerPortfolioManagement({
 
   return (
     <>
-      <div className="space-y-6">
-        <section className="relative overflow-hidden rounded-3xl bg-emerald-950 px-6 py-8 text-white shadow-xl sm:px-8 lg:px-10">
-          <div className="absolute -right-16 -top-24 size-80 rounded-full border border-white/10" />
-          <div className="relative">
-            <Badge className="border-white/15 bg-white/10 text-emerald-100 hover:bg-white/10">
-              National owner registry
-            </Badge>
-            <h1 className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">Vehicle owners</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-emerald-100/75 sm:text-base">
-              Review provider-linked owners from a lightweight portfolio. Full documents and account details load only when opened.
-            </p>
-          </div>
-        </section>
-
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { label: "Linked owners", value: summary.total, icon: UsersRound },
-            { label: "Active customers", value: summary.active, icon: CheckCircle2 },
-            { label: "Owner response due", value: summary.pending_owner_approval, icon: UserRound },
-            { label: "Provider response due", value: summary.pending_provider_approval, icon: Building2 },
-          ].map(({ label, value, icon: Icon }) => (
-            <Card key={label}>
-              <CardContent className="flex items-start justify-between p-5">
-                <div>
-                  <p className="text-sm text-muted-foreground">{label}</p>
-                  <p className="mt-3 text-3xl font-semibold">{value}</p>
-                </div>
-                <div className="flex size-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800">
-                  <Icon className="size-5" aria-hidden="true" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </section>
-
+      <div>
         <Card>
-          <CardContent className="p-0">
-            <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <CardHeader className="space-y-0 border-b px-4 py-4 sm:px-5">
+            <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
               <div>
-                <h2 className="font-semibold">Provider owner portfolio</h2>
-                <p className="text-sm text-muted-foreground">
-                  {firstRecord}–{lastRecord} of {pageData.total} matching owners
-                  {loadingPage ? " · Loading..." : ""}
+                <CardTitle>Vehicle owner portfolio</CardTitle>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {initialPage.total} matching owner record{initialPage.total === 1 ? "" : "s"} linked to this provider.
                 </p>
               </div>
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                <div className="relative sm:w-80">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                  <Input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search all owners, code, NID, phone..."
-                    maxLength={180}
-                    aria-label="Search provider vehicle owners"
-                    className="pl-9"
-                  />
-                </div>
-                <select
-                  value={query.status}
-                  aria-label="Filter owner link status"
-                  onChange={(event) => setQuery((current) => ({
-                    ...current,
-                    status: event.target.value,
-                    offset: 0,
-                  }))}
-                  className="h-10 rounded-md border bg-white px-3 text-sm"
-                >
-                  <option value="all">All link statuses</option>
-                  <option value="active">Active</option>
-                  <option value="pending_owner_approval">Owner approval due</option>
-                  <option value="pending_provider_approval">Provider approval due</option>
-                  <option value="rejected">Rejected</option>
-                  <option value="suspended">Suspended</option>
-                  <option value="ended">Ended</option>
-                </select>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary">{summary.active} active</Badge>
+                <Badge variant="outline">{summary.pending_provider_approval} pending your approval</Badge>
+                {canRegister ? (
+                  <Button asChild size="sm">
+                    <Link href="/provider/owners/register"><Plus /> Register or link owner</Link>
+                  </Button>
+                ) : null}
               </div>
             </div>
-
-            {pageError ? (
-              <Alert variant="destructive" className="m-4 w-auto">
-                <AlertTitle>Could not load vehicle owners</AlertTitle>
-                <AlertDescription>{pageError}</AlertDescription>
-                <Button type="button" variant="outline" size="sm" onClick={refreshCurrentPage}>
-                  Retry
-                </Button>
-              </Alert>
-            ) : null}
-            {loadingPage ? (
-              <div role="status" aria-live="polite" className="flex items-center gap-2 border-b px-6 py-3 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" /> Loading owners from server...
+            <form className="mt-3 grid gap-2 sm:grid-cols-[minmax(220px,1fr)_220px_145px_auto_auto]" method="get">
+              <div className="relative">
+                <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="h-9 pl-9"
+                  defaultValue={filters.search}
+                  name="search"
+                  maxLength={180}
+                  aria-label="Search provider vehicle owners"
+                  placeholder="Owner name, code, NID, phone..."
+                />
               </div>
-            ) : null}
-
-            {pageData.items.length ? (
-              <div className="overflow-x-auto" aria-busy={loadingPage}>
+              <select
+                aria-label="Owner link status"
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                defaultValue={filters.status}
+                name="status"
+              >
+                <option value="">All link statuses</option>
+                {linkStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+              <select
+                aria-label="Owners per page"
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                defaultValue={filters.limit}
+                name="limit"
+              >
+                {[10, 25, 50, 100].map((size) => <option key={size} value={size}>{size} per page</option>)}
+              </select>
+              <Button className="h-9" type="submit">Apply</Button>
+              {hasFilters ? (
+                <Button asChild className="h-9" type="button" variant="outline">
+                  <Link href="/provider/owners">Clear</Link>
+                </Button>
+              ) : null}
+            </form>
+            <div className="mt-3 flex flex-col gap-2 border-t pt-3 md:flex-row md:items-center md:justify-between">
+              <p className="text-xs text-muted-foreground sm:text-sm">
+                Showing <span className="font-medium text-foreground">{firstRecord}–{lastRecord}</span> of{" "}
+                <span className="font-medium text-foreground">{initialPage.total}</span>
+                <span className="mx-2 text-slate-300">|</span>
+                Page <span className="font-medium text-foreground">{currentPage}</span> of{" "}
+                <span className="font-medium text-foreground">{totalPages}</span>
+              </p>
+              <nav aria-label="Owner pagination" className="flex flex-wrap items-center gap-1">
+                {currentPage > 1 ? (
+                  <Button asChild className="h-8 px-2" size="sm" variant="outline">
+                    <Link href={ownerPageHref(currentPage - 1, filters)} aria-label="Previous page">
+                      <ChevronLeft aria-hidden="true" className="size-4" />
+                      <span className="hidden sm:inline">Previous</span>
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button className="h-8 px-2" disabled size="sm" variant="outline">
+                    <ChevronLeft aria-hidden="true" className="size-4" />
+                    <span className="hidden sm:inline">Previous</span>
+                  </Button>
+                )}
+                {visiblePages.map((item, index) =>
+                  item === "ellipsis" ? (
+                    <span key={`ellipsis-${index}`} className="flex h-8 min-w-7 items-center justify-center px-1 text-sm text-muted-foreground">…</span>
+                  ) : item === currentPage ? (
+                    <Button key={item} aria-current="page" className="h-8 min-w-8 px-2" disabled size="sm">{item}</Button>
+                  ) : (
+                    <Button key={item} asChild className="h-8 min-w-8 px-2" size="sm" variant="outline">
+                      <Link href={ownerPageHref(item, filters)}>{item}</Link>
+                    </Button>
+                  )
+                )}
+                {currentPage < totalPages ? (
+                  <Button asChild className="h-8 px-2" size="sm" variant="outline">
+                    <Link href={ownerPageHref(currentPage + 1, filters)} aria-label="Next page">
+                      <span className="hidden sm:inline">Next</span>
+                      <ChevronRight aria-hidden="true" className="size-4" />
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button className="h-8 px-2" disabled size="sm" variant="outline">
+                    <span className="hidden sm:inline">Next</span>
+                    <ChevronRight aria-hidden="true" className="size-4" />
+                  </Button>
+                )}
+              </nav>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4">
+            {initialPage.items.length ? (
+              <div className="overflow-x-auto" >
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
@@ -515,7 +486,7 @@ export function ProviderOwnerPortfolioManagement({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pageData.items.map((item) => (
+                    {initialPage.items.map((item) => (
                       <TableRow key={item.owner.id}>
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -540,7 +511,7 @@ export function ProviderOwnerPortfolioManagement({
                             <Button
                               size="sm"
                               variant="outline"
-                              disabled={loadingAction !== null || loadingPage}
+                              disabled={loadingAction !== null}
                               onClick={() => void loadDetails(item, "view")}
                             >
                               {loadingAction === `${item.owner.id}:view` ? <Loader2 className="animate-spin" /> : null}
@@ -550,7 +521,7 @@ export function ProviderOwnerPortfolioManagement({
                               <Button
                                 size="icon-sm"
                                 variant="ghost"
-                                disabled={loadingAction !== null || loadingPage}
+                                disabled={loadingAction !== null}
                                 onClick={() => void loadDetails(item, "edit")}
                                 aria-label="Edit owner"
                               >
@@ -573,51 +544,11 @@ export function ProviderOwnerPortfolioManagement({
                 <p className="mt-1 text-sm text-muted-foreground">Adjust the search and link-status filter.</p>
               </div>
             )}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t p-4 sm:px-6" aria-label="Owner list pagination">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <label htmlFor="provider-owner-page-size">Rows per page</label>
-                <select
-                  id="provider-owner-page-size"
-                  className="h-9 rounded-md border bg-white px-2 text-sm"
-                  value={query.limit}
-                  disabled={loadingPage}
-                  onChange={(event) => setQuery((current) => ({
-                    ...current,
-                    offset: 0,
-                    limit: Number(event.target.value),
-                  }))}
-                >
-                  {[10, 25, 50, 100].map((size) => (
-                    <option key={size} value={size}>{size}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-wrap items-center gap-1">
-                <span className="mr-2 text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
-                <Button size="sm" variant="outline" type="button" disabled={loadingPage || currentPage === 1} onClick={() => navigateToPage(1)}>First</Button>
-                <Button size="sm" variant="outline" type="button" disabled={loadingPage || currentPage === 1} onClick={() => navigateToPage(currentPage - 1)}>Previous</Button>
-                {visiblePages.map((pageNumber) => (
-                  <Button
-                    key={pageNumber}
-                    size="sm"
-                    type="button"
-                    variant={pageNumber === currentPage ? "default" : "outline"}
-                    aria-current={pageNumber === currentPage ? "page" : undefined}
-                    disabled={loadingPage || pageNumber === currentPage}
-                    onClick={() => navigateToPage(pageNumber)}
-                  >
-                    {pageNumber}
-                  </Button>
-                ))}
-                <Button size="sm" variant="outline" type="button" disabled={loadingPage || currentPage === totalPages} onClick={() => navigateToPage(currentPage + 1)}>Next</Button>
-                <Button size="sm" variant="outline" type="button" disabled={loadingPage || currentPage === totalPages} onClick={() => navigateToPage(totalPages)}>Last</Button>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>
 
-      <EditOwnerDialog target={editing} onOpenChange={(open) => !open && setEditing(null)} onSaved={refreshCurrentPage} />
+      <EditOwnerDialog target={editing} onOpenChange={(open) => !open && setEditing(null)} />
 
       <Dialog open={Boolean(details)} onOpenChange={(open) => !open && setDetails(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
