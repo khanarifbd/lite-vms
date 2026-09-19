@@ -254,7 +254,10 @@ async def list_provider_owner_portfolio(
 
     rows = (
         await session.execute(
-            query.order_by(VTSProviderOwnerLink.created_at.desc())
+            query.order_by(
+                VTSProviderOwnerLink.created_at.desc(),
+                VTSProviderOwnerLink.id.desc(),
+            )
             .offset(offset)
             .limit(limit)
         )
