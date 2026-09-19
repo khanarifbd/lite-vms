@@ -328,12 +328,11 @@ def configure_logging() -> None:
 
 
 async def main() -> None:
+    # This executable remains for compatibility with previously installed
+    # systemd units, but Lite VMS does not run telemetry ingestion.
+    # Stop and disable those units during deployment; do not start Kafka here.
     configure_logging()
-    worker = TelemetryStorageConsumer()
-    loop = asyncio.get_running_loop()
-    for signal_name in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(signal_name, worker._stopping.set)
-    await worker.run()
+    logger.info("Telemetry ingestion is disabled in Lite VMS; consumer not started.")
 
 
 if __name__ == "__main__":
