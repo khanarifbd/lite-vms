@@ -20,27 +20,29 @@ from app.modules.vehicles.provider_registration_schema import ProviderVehicleReg
 
 
 @pytest.mark.asyncio
-async def test_certificate_requires_one_uploaded_vehicle_document() -> None:
+async def test_certificate_without_documents_or_serial_numbers_is_ready() -> None:
     session = AsyncMock()
-    session.scalar.return_value = None
-    vehicle = SimpleNamespace(id=uuid.uuid4())
-
-    requirements, document_expiry = await certificate_readiness(session, vehicle)
-
-    assert requirements == ["at least one uploaded vehicle document"]
-    assert document_expiry is None
-
-
-@pytest.mark.asyncio
-async def test_any_uploaded_vehicle_document_allows_certificate_generation() -> None:
-    session = AsyncMock()
-    session.scalar.return_value = uuid.uuid4()
-    vehicle = SimpleNamespace(id=uuid.uuid4())
+    vehicle = SimpleNamespace(
+        id=uuid.uuid4(),
+        chassis_number=None,
+        engine_number=None,
+    )
 
     requirements, document_expiry = await certificate_readiness(session, vehicle)
 
     assert requirements == []
     assert document_expiry is None
+    session.scalar.assert_not_awaited()
+    assert provider_registration_router.certificate_payload(
+        SimpleNamespace(
+            certificate_number=None,
+            certificate_issued_at=None,
+            certificate_expires_at=None,
+            certificate_generated_at=None,
+            vts_installation_date=None,
+        ),
+        requirements=requirements,
+    )["can_generate"] is True
 
 
 def test_verified_provider_vehicle_can_be_updated_without_resubmission() -> None:
