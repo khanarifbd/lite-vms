@@ -121,12 +121,14 @@ async def provider_customer_api(
                         document_type="btrc_license",
                         document_number="BTRC-CUSTOMER-001",
                         file_name="btrc.pdf",
+                        storage_key="test-fixtures/btrc.pdf",
                         file_url="https://files.example/btrc.pdf",
                     ),
                     ProviderDocumentCreate(
                         document_type="trade_license",
                         document_number="TRADE-CUSTOMER-001",
                         file_name="trade.pdf",
+                        storage_key="test-fixtures/trade.pdf",
                         file_url="https://files.example/trade.pdf",
                     ),
                 ],
@@ -204,6 +206,7 @@ async def provider_customer_api(
                     document_type="national_id",
                     document_reference="NID-***-7654",
                     file_name="nid.pdf",
+                    storage_key="test-fixtures/nid.pdf",
                     file_url="https://files.example/nid.pdf",
                 )
             ],
