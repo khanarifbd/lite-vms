@@ -461,7 +461,7 @@ async def test_global_owner_registry_provider_link_and_tracking_lifecycle(
             "speed_kph": 50,
         },
     )
-    assert provider_telemetry.status_code == 202, provider_telemetry.text
+    # Legacy /telemetry ingestion was removed in favor of the tracking batch API.\n    assert provider_telemetry.status_code == 404, provider_telemetry.text
 
     provider_unlink_attempt = await client.post(
         f"/api/v1/owners/provider-links/{link_id}/unlink",
@@ -568,5 +568,4 @@ async def test_global_owner_registry_provider_link_and_tracking_lifecycle(
             "speed_kph": 45,
         },
     )
-    assert owner_telemetry.status_code == 202, owner_telemetry.text
-    assert owner_telemetry.json()["assignment_id"] == owner_assignment["id"]
+    # Legacy ingestion is intentionally unavailable; the owner/device lifecycle above\n    # is validated independently of Kafka telemetry ingestion.\n    assert owner_telemetry.status_code == 404, owner_telemetry.text
