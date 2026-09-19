@@ -12,11 +12,25 @@ export async function getProviderOwnerSummary() {
   return authenticatedBackendFetch<ProviderOwnerSummary>("/providers/me/owners/summary")
 }
 
-export async function getProviderOwnerPortfolio() {
-  // Server-render only the first page; subsequent pages and filters are fetched
-  // from the scoped portfolio endpoint rather than filtering the first 100 rows.
+export async function getProviderOwnerPortfolio({
+  page = 1,
+  limit = 25,
+  search = "",
+  status = "",
+}: {
+  page?: number
+  limit?: number
+  search?: string
+  status?: string
+} = {}) {
+  const params = new URLSearchParams({
+    offset: String((page - 1) * limit),
+    limit: String(limit),
+  })
+  if (search) params.set("search", search)
+  if (status) params.set("status", status)
   return authenticatedBackendFetch<ProviderOwnerPortfolioPage>(
-    "/providers/me/owners/portfolio?offset=0&limit=25"
+    `/providers/me/owners/portfolio?${params.toString()}`
   )
 }
 
