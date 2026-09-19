@@ -1,4 +1,5 @@
 import uuid
+from datetime import date, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -11,6 +12,7 @@ from app.modules.vehicles.provider_registration_router import (
     PROVIDER_VEHICLE_EDITABLE_STATUSES,
     PROVIDER_VEHICLE_SUBMITTABLE_STATUSES,
     certificate_owner_name,
+    CertificateGenerationRequest,
     certificate_provider,
     certificate_readiness,
     fitted_font_size,
@@ -20,27 +22,74 @@ from app.modules.vehicles.provider_registration_schema import ProviderVehicleReg
 
 
 @pytest.mark.asyncio
-async def test_certificate_requires_one_uploaded_vehicle_document() -> None:
+async def test_certificate_without_documents_or_serial_numbers_is_ready() -> None:
     session = AsyncMock()
-    session.scalar.return_value = None
-    vehicle = SimpleNamespace(id=uuid.uuid4())
-
-    requirements, document_expiry = await certificate_readiness(session, vehicle)
-
-    assert requirements == ["at least one uploaded vehicle document"]
-    assert document_expiry is None
-
-
-@pytest.mark.asyncio
-async def test_any_uploaded_vehicle_document_allows_certificate_generation() -> None:
-    session = AsyncMock()
-    session.scalar.return_value = uuid.uuid4()
-    vehicle = SimpleNamespace(id=uuid.uuid4())
+    vehicle = SimpleNamespace(
+        id=uuid.uuid4(),
+        chassis_number=None,
+        engine_number=None,
+    )
 
     requirements, document_expiry = await certificate_readiness(session, vehicle)
 
     assert requirements == []
     assert document_expiry is None
+    session.scalar.assert_not_awaited()
+    assert provider_registration_router.certificate_payload(
+        SimpleNamespace(
+            certificate_number=None,
+            certificate_issued_at=None,
+            certificate_expires_at=None,
+            certificate_generated_at=None,
+            vts_installation_date=None,
+        ),
+        requirements=requirements,
+    )["can_generate"] is True
+
+
+@pytest.mark.asyncio
+async def test_provider_can_issue_certificate_without_documents_or_serials(monkeypatch) -> None:
+    vehicle = SimpleNamespace(
+        id=uuid.uuid4(),
+        owner_id=uuid.uuid4(),
+        chassis_number=None,
+        engine_number=None,
+        certificate_number=None,
+        certificate_issued_at=None,
+        certificate_expires_at=None,
+        certificate_generated_at=None,
+        vts_installation_date=None,
+    )
+    provider = SimpleNamespace(tenant_id=10, root_organization_id=20)
+    actor = SimpleNamespace(id=30)
+    session = AsyncMock()
+
+    async def get_provider_vehicle(*args, **kwargs):
+        return vehicle, provider
+
+    async def write_audit_log(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(provider_registration_router, "get_provider_vehicle", get_provider_vehicle)
+    monkeypatch.setattr(provider_registration_router, "write_audit_log", write_audit_log)
+
+    result = await provider_registration_router.generate_provider_vehicle_certificate(
+        vehicle.id,
+        CertificateGenerationRequest(
+            vts_installation_date=date.today(),
+            certificate_expires_at=date.today() + timedelta(days=365),
+        ),
+        actor,
+        session,
+    )
+
+    assert result["can_generate"] is True
+    assert result["certificate_number"] == vehicle.certificate_number
+    assert result["certificate_number"].startswith("GOMAX-")
+    assert vehicle.chassis_number is None
+    assert vehicle.engine_number is None
+    session.scalar.assert_not_awaited()
+    session.commit.assert_awaited_once()
 
 
 def test_verified_provider_vehicle_can_be_updated_without_resubmission() -> None:

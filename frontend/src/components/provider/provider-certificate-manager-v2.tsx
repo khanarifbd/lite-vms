@@ -1,6 +1,6 @@
 "use client"
 
-import { Award, Download, Eye, FileText, Loader2, RefreshCw } from "lucide-react"
+import { Award, Download, Eye, Loader2, RefreshCw } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -97,12 +97,11 @@ export function ProviderCertificateManagerV2({ vehicleId, canManage }: { vehicle
       <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
         <div>
           <CardTitle className="flex items-center gap-2"><Award className="text-emerald-800" /> Vehicle certificate</CardTitle>
-          <p className="mt-2 text-sm text-muted-foreground">Issue a certificate when the vehicle has at least one uploaded document. The VTS installation date is taken from the vehicle record.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Vehicle documents, chassis number and engine number are optional for certificate issuance. The VTS installation date is taken from the vehicle record.</p>
         </div>
         <Badge variant={certificate.status === "active" ? "secondary" : "outline"}>{certificate.status.replace("_", " ")}</Badge>
       </CardHeader>
       <CardContent className="space-y-5">
-        {certificate.requirements.length ? <Alert className="border-amber-200 bg-amber-50 text-amber-950"><FileText /><AlertTitle>Vehicle document required</AlertTitle><AlertDescription>Upload at least one vehicle document before issuing a certificate.</AlertDescription></Alert> : null}
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-muted-foreground">Certificate no.</p><p className="mt-2 font-semibold">{certificate.certificate_number || "Not issued"}</p></div>
           <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-muted-foreground">Issued on</p><p className="mt-2 font-semibold">{formatDate(certificate.issued_at)}</p></div>

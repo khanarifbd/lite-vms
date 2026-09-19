@@ -1,7 +1,6 @@
 "use client"
 
-import { Award, Download, Eye, FileText, Loader2, RefreshCw } from "lucide-react"
-import Link from "next/link"
+import { Award, Download, Eye, Loader2, RefreshCw } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -49,7 +48,7 @@ function todayDate() {
   return monthsAgoDate(0)
 }
 
-export function VehicleCertificateManager({ vehicleId, canManage, apiBasePath = "/api/provider/vehicles", documentsHref }: { vehicleId: string; canManage: boolean; apiBasePath?: string; documentsHref?: string }) {
+export function VehicleCertificateManager({ vehicleId, canManage, apiBasePath = "/api/provider/vehicles" }: { vehicleId: string; canManage: boolean; apiBasePath?: string; documentsHref?: string }) {
   const [certificate, setCertificate] = useState<Certificate | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -93,11 +92,10 @@ export function VehicleCertificateManager({ vehicleId, canManage, apiBasePath = 
       {error ? <Alert variant="destructive"><AlertTitle>Certificate unavailable</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
       {certificate ? <Card>
         <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
-          <div><CardTitle className="flex items-center gap-2"><Award className="text-emerald-800" /> Vehicle certificate</CardTitle><p className="mt-2 text-sm text-muted-foreground">Issue a certificate when the vehicle has at least one uploaded document. A new certificate can be issued after expiry.</p></div>
+          <div><CardTitle className="flex items-center gap-2"><Award className="text-emerald-800" /> Vehicle certificate</CardTitle><p className="mt-2 text-sm text-muted-foreground">Vehicle documents, chassis number and engine number are optional for certificate issuance. A new certificate can be issued after expiry.</p></div>
           <Badge variant={certificate.status === "active" ? "secondary" : "outline"}>{certificate.status.replace("_", " ")}</Badge>
         </CardHeader>
         <CardContent className="space-y-5">
-          {certificate.requirements.length ? <Alert className="border-amber-200 bg-amber-50 text-amber-950"><FileText /><AlertTitle>Vehicle document required</AlertTitle><AlertDescription><p>Upload at least one vehicle document before issuing a certificate.</p>{documentsHref ? <Button asChild size="sm" variant="outline" className="mt-3"><Link href={documentsHref}>Open documents</Link></Button> : null}</AlertDescription></Alert> : null}
           <div className="grid gap-4 sm:grid-cols-3"><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-muted-foreground">Certificate no.</p><p className="mt-2 font-semibold">{certificate.certificate_number || "Not issued"}</p></div><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-muted-foreground">Issued on</p><p className="mt-2 font-semibold">{formatDate(certificate.issued_at)}</p></div><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-muted-foreground">Expires on</p><p className="mt-2 font-semibold">{formatDate(certificate.expires_at)}</p></div></div>
           <div className="flex flex-wrap gap-3">
             {certificate.certificate_number ? <Button asChild variant="outline"><a href={`${apiBasePath}/${vehicleId}/certificate/download?view=1`} target="_blank" rel="noopener noreferrer"><Eye /> View certificate</a></Button> : null}
