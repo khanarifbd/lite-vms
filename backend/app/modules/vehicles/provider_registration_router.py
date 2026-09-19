@@ -30,7 +30,6 @@ from app.core.database import get_session
 from app.modules.audit.service import write_audit_log
 from app.modules.auth.dependencies import require_roles
 from app.modules.auth.model import User
-from app.modules.documents.model import VehicleDocument
 from app.modules.owners.model import VehicleOwner
 from app.modules.owners.service import get_owner_username
 from app.core.config import settings
@@ -72,22 +71,13 @@ PROVIDER_VEHICLE_SUBMITTABLE_STATUSES = {
 PROVIDER_VEHICLE_EDITABLE_STATUSES = PROVIDER_VEHICLE_SUBMITTABLE_STATUSES | {
     VehicleVerificationStatus.VERIFIED,
 }
-CERTIFICATE_DOCUMENT_REQUIREMENT = "at least one uploaded vehicle document"
-
-
 async def certificate_readiness(
     session: AsyncSession, vehicle: Vehicle
 ) -> tuple[list[str], date | None]:
-    document_id = await session.scalar(
-        select(VehicleDocument.id)
-        .where(
-            VehicleDocument.vehicle_id == vehicle.id,
-            VehicleDocument.is_active.is_(True),
-        )
-        .limit(1)
-    )
-    requirements = [] if document_id is not None else [CERTIFICATE_DOCUMENT_REQUIREMENT]
-    return requirements, None
+    # Documents, chassis numbers and engine numbers are optional for certificate
+    # issuance. Keep this helper for compatibility with the owner and provider
+    # certificate status endpoints, without adding a database query.
+    return [], None
 
 
 def certificate_payload(vehicle: Vehicle, *, requirements: list[str]) -> dict[str, object]:
@@ -487,13 +477,6 @@ async def generate_provider_vehicle_certificate(
         raise HTTPException(status_code=422, detail="VTS installation date cannot be in the future")
     if payload.certificate_expires_at <= date.today():
         raise HTTPException(status_code=422, detail="Certificate expiry date must be after today")
-    requirements, _ = await certificate_readiness(session, vehicle)
-    if requirements:
-        raise HTTPException(
-            status_code=422,
-            detail="Certificate requires at least one uploaded vehicle document",
-        )
-
     issued_at = date.today()
     expires_at = payload.certificate_expires_at
     vehicle.certificate_number = f"GOMAX-{issued_at:%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
