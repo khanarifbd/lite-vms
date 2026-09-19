@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends
 
 from app.common.enums import UserRole
-from app.core.config import settings
 from app.modules.approvals.cursor_router import router as approval_cursor_router
 from app.modules.approvals.document_router import router as approval_document_router
 from app.modules.assignments.owner_vehicle_router import router as owner_vehicle_driver_router
@@ -46,7 +45,6 @@ from app.modules.owners.public_registration_router import router as owner_public
 from app.modules.owners.recovery_router import router as owner_recovery_router
 from app.modules.owners.router import router as owners_router
 from app.modules.providers.admin_router import router as admin_provider_router
-from app.modules.providers.api_key_router import router as provider_api_key_router
 from app.modules.providers.router import router as providers_router
 from app.modules.providers.staff_router import router as provider_staff_router
 from app.modules.providers.workspace_router import router as provider_workspace_router
@@ -59,7 +57,6 @@ from app.modules.settings.auto_approval_dependencies import (
 )
 from app.modules.settings.router import router as admin_settings_router
 from app.modules.settings.vehicle_options_router import router as vehicle_options_router
-from app.modules.telemetry.router import router as telemetry_router
 from app.modules.tracking.provider_device_router import router as provider_device_router
 from app.modules.tracking.router import router as tracking_router
 from app.modules.uploads.router import router as uploads_router
@@ -106,7 +103,6 @@ api_router.include_router(
     dependencies=[Depends(apply_owner_auto_approval_after_request)],
 )
 api_router.include_router(provider_workspace_router)
-api_router.include_router(provider_api_key_router)
 api_router.include_router(providers_router)
 api_router.include_router(public_qr_router)
 
@@ -155,6 +151,4 @@ registry_roles = (
 registry_access = [Depends(require_roles(*registry_roles))]
 
 api_router.include_router(documents_router, dependencies=registry_access)
-if settings.telemetry_enabled:
-    api_router.include_router(telemetry_router)
 api_router.include_router(qr_router, dependencies=registry_access)
