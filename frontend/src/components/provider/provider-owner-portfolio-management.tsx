@@ -474,7 +474,7 @@ export function ProviderOwnerPortfolioManagement({
           </CardHeader>
           <CardContent className="p-3 sm:p-4">
             {initialPage.items.length ? (
-              <div className="overflow-x-auto" aria-busy={loadingPage}>
+              <div className="overflow-x-auto" >
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
