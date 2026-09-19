@@ -278,7 +278,7 @@ async def test_global_owner_registry_provider_link_and_tracking_lifecycle(
     duplicate_detail = duplicate_owner_registration.json()["detail"]
     assert duplicate_detail["code"] == "owner_already_registered"
     assert duplicate_detail["owner_name"] == "Md Vehicle Owner"
-    assert duplicate_detail["masked_phone"].endswith("1111")
+    assert duplicate_detail["phone"].endswith("1111")
     assert duplicate_detail["next_action"] == "request_mobile_password_reset"
 
     unknown_password_login = await client.post(
