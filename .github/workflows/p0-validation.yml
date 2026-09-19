@@ -1,0 +1,49 @@
+name: P0 validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [codestation/p0-performance]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests (Python 3.13)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: python -m pip install -r backend/requirements.txt pytest pytest-asyncio
+      - name: Run backend tests
+        working-directory: backend
+        run: python -m pytest -q tests
+
+  frontend:
+    name: Frontend production build (Node 24)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: pnpm build
