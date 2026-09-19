@@ -1,4 +1,6 @@
 [Unit]
+# Deprecated in Lite VMS: stop/disable installed telemetry consumer units.
+# Never enable this unit in a Lite VMS deployment.
 Description=Bangladesh National Vehicle Platform Telemetry Consumer
 After=network-online.target
 Wants=network-online.target
@@ -12,7 +14,7 @@ Environment=TZ=UTC
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart={{VENV_PATH}}/bin/python -m app.workers.telemetry_consumer
-Restart=always
+Restart=no
 RestartSec=5
 TimeoutStartSec=60
 TimeoutStopSec=30

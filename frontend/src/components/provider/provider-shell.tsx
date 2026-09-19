@@ -12,7 +12,6 @@ import {
   LockKeyhole,
   LoaderCircle,
   Menu,
-  RadioTower,
   Settings,
   ShieldCheck,
   UsersRound,
@@ -105,12 +104,6 @@ const navigation: Array<{ label: string; items: NavItem[] }> = [
         href: "/provider/vehicles/register",
         icon: CarFront,
         roles: providerVehicleRegistrationRoles,
-      },
-      {
-        label: "Telemetry integration",
-        href: "/provider/integration",
-        icon: RadioTower,
-        roles: providerVehicleRoles,
       },
     ],
   },
@@ -330,9 +323,6 @@ export function ProviderShell({ user, children }: ProviderShellProps) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/provider/dashboard">Review dashboard alerts</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/provider/integration">Check telemetry connection</Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

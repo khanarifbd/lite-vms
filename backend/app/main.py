@@ -9,19 +9,15 @@ from app.core.config import settings
 from app.core.database import close_database
 from app.modules.auth.bootstrap import bootstrap_identity_platform
 from app.modules.health.router import router as health_router
-from app.modules.telemetry.kafka import telemetry_kafka_producer
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await bootstrap_identity_platform()
-    if settings.telemetry_enabled:
-        await telemetry_kafka_producer.start()
+    # Lite VMS has no telemetry ingestion workload: do not start Kafka producers.
     try:
         yield
     finally:
-        if settings.telemetry_enabled:
-            await telemetry_kafka_producer.stop()
         await close_database()
 
 

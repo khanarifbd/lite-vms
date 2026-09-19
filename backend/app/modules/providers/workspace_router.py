@@ -15,7 +15,6 @@ from app.modules.providers.service import (
     replace_allowed_ips,
 )
 from app.modules.providers.workspace_schema import ProviderWorkspaceSettingsUpdate
-from app.modules.tracking.service import get_or_create_provider_source
 
 router = APIRouter(prefix="/providers/me", tags=["VTS Provider Workspace"])
 
@@ -35,25 +34,6 @@ def request_agent(request: Request) -> str | None:
     return request.headers.get("user-agent")
 
 
-@router.get("/integration", response_model=ProviderApplicationRead)
-async def read_my_provider_integration(
-    actor: Annotated[User, Depends(require_roles(*workspace_roles))],
-    session: Annotated[AsyncSession, Depends(get_session)],
-) -> ProviderApplicationRead:
-    provider = await get_provider_for_user(session, actor.id)
-    if provider is None:
-        raise HTTPException(status_code=404, detail="VTS provider not found")
-    if provider.status != ProviderStatus.APPROVED:
-        raise HTTPException(status_code=403, detail="VTS provider must be approved first")
-
-    await get_or_create_provider_source(session, provider)
-    if not provider.integration_status:
-        provider.integration_status = "not_configured"
-    await session.commit()
-    await session.refresh(provider)
-    return await build_provider_read(session, provider)
-
-
 @router.patch("/settings", response_model=ProviderApplicationRead)
 async def update_my_provider_settings(
     payload: ProviderWorkspaceSettingsUpdate,
@@ -70,7 +50,6 @@ async def update_my_provider_settings(
             detail="Operational settings are available only after provider approval",
         )
 
-    await get_or_create_provider_source(session, provider)
     allowed_ips = payload.allowed_server_ips
     changes = payload.model_dump(exclude_unset=True, exclude={"allowed_server_ips"})
     field_map = {"technical_contact_mobile": "technical_contact_phone"}
