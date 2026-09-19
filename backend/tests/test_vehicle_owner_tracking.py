@@ -157,6 +157,11 @@ def provider_owner_payload() -> dict[str, object]:
         "contact_mobile": "+8801911111111",
         "contact_name": "Md Vehicle Owner",
         "login_username": "vehicle.owner.001",
+        "admin_full_name": "Md Vehicle Owner",
+        "admin_email": "owner@example.com",
+        "admin_mobile": "+8801911111111",
+        "admin_username": "vehicle.owner.001",
+        "password": "Vehicle-Owner-Password-123",
     }
 
 
