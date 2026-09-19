@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,8 +28,17 @@ async def close_open_duty_sessions(
         raise ValueError("A duty-session scope is required")
 
     sessions = list(await session.scalars(query))
+    # SQLite strips tzinfo when reading a DateTime column; PostgreSQL retains it.
+    # Compare normalized UTC datetimes so duty closing works on both backends.
+    normalized_end = ended_at.replace(tzinfo=UTC) if ended_at.tzinfo is None else ended_at.astimezone(UTC)
     for duty_session in sessions:
-        duty_session.ended_at = max(ended_at, duty_session.started_at)
+        started_at = duty_session.started_at
+        normalized_start = (
+            started_at.replace(tzinfo=UTC)
+            if started_at.tzinfo is None
+            else started_at.astimezone(UTC)
+        )
+        duty_session.ended_at = max(normalized_end, normalized_start)
         duty_session.ended_by_user_id = ended_by_user_id
         duty_session.end_reason = reason
     return sessions
