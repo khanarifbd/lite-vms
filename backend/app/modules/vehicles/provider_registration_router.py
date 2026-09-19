@@ -554,7 +554,6 @@ async def update_provider_vehicle(
     for required_field in (
         "registration_number",
         "registered_owner_name",
-        "chassis_number",
         "vehicle_type",
     ):
         if required_field in changes and changes[required_field] is None:
