@@ -98,6 +98,7 @@ def provider_payload() -> dict[str, object]:
                 "document_type": "btrc_license",
                 "document_number": "BTRC-VTS-TRACK-001",
                 "file_name": "btrc.pdf",
+                "storage_key": "test-fixtures/btrc.pdf",
                 "file_url": "https://files.example/btrc.pdf",
                 "expires_at": None,
             },
@@ -105,6 +106,7 @@ def provider_payload() -> dict[str, object]:
                 "document_type": "trade_license",
                 "document_number": "TRADE-VTS-TRACK-001",
                 "file_name": "trade.pdf",
+                "storage_key": "test-fixtures/trade.pdf",
                 "file_url": "https://files.example/trade.pdf",
                 "expires_at": None,
             },
@@ -129,6 +131,7 @@ def shared_owner_details() -> dict[str, object]:
                 "document_type": "national_id",
                 "document_reference": "NID-***-7654",
                 "file_name": "nid.pdf",
+                "storage_key": "test-fixtures/nid.pdf",
                 "file_url": "https://files.example/nid.pdf",
                 "expires_at": None,
             }
