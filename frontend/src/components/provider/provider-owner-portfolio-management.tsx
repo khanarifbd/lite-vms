@@ -4,24 +4,28 @@ import {
   Building2,
   CheckCircle2,
   Download,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   FileText,
   Loader2,
+  Plus,
   Pencil,
   Search,
   UserRound,
   UsersRound,
   XCircle,
 } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { FormEvent, useEffect, useRef, useState } from "react"
+import { FormEvent, useState } from "react"
 import { toast } from "sonner"
 
 import { StatusBadge } from "@/components/dashboard/status-badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -168,11 +172,9 @@ function Field({
 function EditOwnerDialog({
   target,
   onOpenChange,
-  onSaved,
 }: {
   target: ProviderOwnerCustomer | null
   onOpenChange: (open: boolean) => void
-  onSaved: () => void
 }) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
@@ -208,7 +210,6 @@ function EditOwnerDialog({
           : "Owner details updated"
       )
       onOpenChange(false)
-      onSaved()
       router.refresh()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to update the owner.")
@@ -267,103 +268,61 @@ function EditOwnerDialog({
   )
 }
 
+type OwnerFilters = { search: string; status: string; limit: number }
+type PaginationItem = number | "ellipsis"
+
+const linkStatuses = [
+  ["active", "Active"],
+  ["pending_owner_approval", "Owner approval due"],
+  ["pending_provider_approval", "Provider approval due"],
+  ["rejected", "Rejected"],
+  ["suspended", "Suspended"],
+  ["ended", "Ended"],
+] as const
+
+function ownerPageHref(page: number, filters: OwnerFilters) {
+  const params = new URLSearchParams()
+  if (page > 1) params.set("page", String(page))
+  if (filters.search) params.set("search", filters.search)
+  if (filters.status) params.set("status", filters.status)
+  if (filters.limit !== 25) params.set("limit", String(filters.limit))
+  const query = params.toString()
+  return query ? `/provider/owners?${query}` : "/provider/owners"
+}
+
+function paginationItems(currentPage: number, pageCount: number): PaginationItem[] {
+  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index + 1)
+  const items: PaginationItem[] = [1]
+  const start = Math.max(2, currentPage - 2)
+  const end = Math.min(pageCount - 1, currentPage + 2)
+  if (start > 2) items.push("ellipsis")
+  for (let page = start; page <= end; page += 1) items.push(page)
+  if (end < pageCount - 1) items.push("ellipsis")
+  items.push(pageCount)
+  return items
+}
+
 export function ProviderOwnerPortfolioManagement({
-  initialPage,
-  summary,
-  canManage,
+  initialPage, summary, canManage, canRegister, filters,
 }: {
   initialPage: ProviderOwnerPortfolioPage
   summary: ProviderOwnerSummary
   canManage: boolean
+  canRegister: boolean
+  filters: OwnerFilters
 }) {
   const router = useRouter()
-  const [search, setSearch] = useState("")
-  const [query, setQuery] = useState({
-    search: "",
-    status: "all",
-    offset: 0,
-    limit: initialPage.limit,
-  })
-  const [pageData, setPageData] = useState(initialPage)
-  const [loadingPage, setLoadingPage] = useState(false)
-  const [pageError, setPageError] = useState<string | null>(null)
-  const [reloadCount, setReloadCount] = useState(0)
-  const isInitialRender = useRef(true)
   const [details, setDetails] = useState<ProviderOwnerCustomer | null>(null)
   const [editing, setEditing] = useState<ProviderOwnerCustomer | null>(null)
   const [loadingAction, setLoadingAction] = useState<string | null>(null)
   const [responding, setResponding] = useState<string | null>(null)
 
-  // FastAPI scopes, filters, counts and paginates the full provider-linked registry.
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const value = search.trim()
-      setQuery((current) =>
-        current.search === value ? current : { ...current, search: value, offset: 0 }
-      )
-    }, 350)
-    return () => window.clearTimeout(timer)
-  }, [search])
-
-  useEffect(() => {
-    if (isInitialRender.current) {
-      isInitialRender.current = false
-      return
-    }
-
-    const controller = new AbortController()
-    const params = new URLSearchParams({
-      offset: String(query.offset),
-      limit: String(query.limit),
-    })
-    if (query.search) params.set("search", query.search)
-    if (query.status !== "all") params.set("status", query.status)
-
-    setLoadingPage(true)
-    setPageError(null)
-    void fetch(`/api/provider/owners/portfolio?${params.toString()}`, {
-      signal: controller.signal,
-      cache: "no-store",
-    })
-      .then((response) => parseResponse<ProviderOwnerPortfolioPage>(response))
-      .then((result) => {
-        if (controller.signal.aborted) return
-        if (!result.items.length && result.total > 0 && query.offset > 0) {
-          // Link removal may leave the last page empty.
-          setQuery((current) => ({
-            ...current,
-            offset: Math.floor((result.total - 1) / current.limit) * current.limit,
-          }))
-          return
-        }
-        setPageData(result)
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setPageError(error instanceof Error ? error.message : "Unable to load vehicle owners.")
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoadingPage(false)
-      })
-
-    return () => controller.abort()
-  }, [query, reloadCount])
-
-  const totalPages = Math.max(1, Math.ceil(pageData.total / pageData.limit))
-  const currentPage = Math.floor(pageData.offset / pageData.limit) + 1
-  const firstRecord = pageData.total ? pageData.offset + 1 : 0
-  const lastRecord = Math.min(pageData.offset + pageData.items.length, pageData.total)
-  const firstVisiblePage = Math.max(1, Math.min(currentPage - 2, totalPages - 4))
-  const visiblePages = Array.from(
-    { length: Math.min(5, totalPages) },
-    (_, index) => firstVisiblePage + index
-  )
-  const navigateToPage = (nextPage: number) => {
-    if (loadingPage || nextPage < 1 || nextPage > totalPages || nextPage === currentPage) return
-    setQuery((current) => ({ ...current, offset: (nextPage - 1) * current.limit }))
-  }
-  const refreshCurrentPage = () => setReloadCount((value) => value + 1)
+  const totalPages = Math.max(1, Math.ceil(initialPage.total / initialPage.limit))
+  const currentPage = Math.floor(initialPage.offset / initialPage.limit) + 1
+  const firstRecord = initialPage.total ? initialPage.offset + 1 : 0
+  const lastRecord = Math.min(initialPage.offset + initialPage.items.length, initialPage.total)
+  const visiblePages = paginationItems(currentPage, totalPages)
+  const hasFilters = Boolean(filters.search || filters.status)
 
   const loadDetails = async (
     item: ProviderOwnerPortfolioItem,
@@ -398,7 +357,6 @@ export function ProviderOwnerPortfolioManagement({
       )
       toast.success(decision === "approve" ? "Owner link approved" : "Owner link rejected")
       setDetails(null)
-      refreshCurrentPage()
       router.refresh()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to update the link.")
