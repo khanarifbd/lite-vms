@@ -1,11 +1,11 @@
 import secrets
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common.enums import EntityStatus, MembershipStatus, TrackingAssignmentStatus
+from app.common.enums import MembershipStatus, TrackingAssignmentStatus
 from app.modules.auth.model import User
 from app.modules.iam.model import Organization, OrganizationMembership, Tenant
 from app.modules.owners.enums import OwnerProviderLinkStatus
@@ -16,8 +16,7 @@ from app.modules.providers.schema import (
     ProviderDocumentCreate,
     ProviderDocumentRead,
 )
-from app.modules.tracking.model import TelemetrySource, TrackingDevice, VehicleDeviceAssignment
-from app.modules.vehicles.model import Vehicle
+from app.modules.tracking.model import TrackingDevice, VehicleDeviceAssignment
 
 
 def generate_application_number() -> str:
@@ -171,27 +170,9 @@ async def build_provider_read(
         )
         or 0
     )
-    online_cutoff = datetime.now(UTC) - timedelta(minutes=5)
-    online_vehicle_count = int(
-        await session.scalar(
-            select(func.count(func.distinct(Vehicle.id)))
-            .join(
-                VehicleDeviceAssignment,
-                VehicleDeviceAssignment.vehicle_id == Vehicle.id,
-            )
-            .where(
-                VehicleDeviceAssignment.provider_id == provider.id,
-                VehicleDeviceAssignment.status == TrackingAssignmentStatus.ACTIVE,
-                Vehicle.status == EntityStatus.ACTIVE,
-                Vehicle.last_recorded_at.is_not(None),
-                Vehicle.last_recorded_at >= online_cutoff,
-            )
-        )
-        or 0
-    )
-    source = await session.scalar(
-        select(TelemetrySource).where(TelemetrySource.provider_id == provider.id)
-    )
+    # Lite VMS does not ingest telemetry. Do not execute live GPS or telemetry
+    # source queries for every provider summary/profile request.
+    online_vehicle_count = 0
     provider_staff_count = int(
         await session.scalar(
             select(func.count(OrganizationMembership.id)).where(
@@ -277,9 +258,9 @@ async def build_provider_read(
         registered_device_count=registered_device_count,
         active_vehicle_count=active_vehicle_count,
         online_vehicle_count=online_vehicle_count,
-        telemetry_source_id=source.id if source else None,
-        telemetry_source_code=source.code if source else None,
-        telemetry_source_status=source.status.value if source else None,
+        telemetry_source_id=None,
+        telemetry_source_code=None,
+        telemetry_source_status=None,
         provider_staff_count=provider_staff_count,
         declaration_accepted=provider.declaration_accepted,
         submitted_at=provider.submitted_at,
