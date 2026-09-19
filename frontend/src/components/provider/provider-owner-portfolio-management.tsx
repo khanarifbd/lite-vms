@@ -14,7 +14,7 @@ import {
   XCircle,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { FormEvent, useMemo, useState } from "react"
+import { FormEvent, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { StatusBadge } from "@/components/dashboard/status-badge"
@@ -168,9 +168,11 @@ function Field({
 function EditOwnerDialog({
   target,
   onOpenChange,
+  onSaved,
 }: {
   target: ProviderOwnerCustomer | null
   onOpenChange: (open: boolean) => void
+  onSaved: () => void
 }) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
@@ -206,6 +208,7 @@ function EditOwnerDialog({
           : "Owner details updated"
       )
       onOpenChange(false)
+      onSaved()
       router.refresh()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to update the owner.")
@@ -275,30 +278,92 @@ export function ProviderOwnerPortfolioManagement({
 }) {
   const router = useRouter()
   const [search, setSearch] = useState("")
-  const [status, setStatus] = useState("all")
+  const [query, setQuery] = useState({
+    search: "",
+    status: "all",
+    offset: 0,
+    limit: initialPage.limit,
+  })
+  const [pageData, setPageData] = useState(initialPage)
+  const [loadingPage, setLoadingPage] = useState(false)
+  const [pageError, setPageError] = useState<string | null>(null)
+  const [reloadCount, setReloadCount] = useState(0)
+  const isInitialRender = useRef(true)
   const [details, setDetails] = useState<ProviderOwnerCustomer | null>(null)
   const [editing, setEditing] = useState<ProviderOwnerCustomer | null>(null)
   const [loadingAction, setLoadingAction] = useState<string | null>(null)
   const [responding, setResponding] = useState<string | null>(null)
 
-  const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    return initialPage.items.filter((item) => {
-      const matchesStatus = status === "all" || item.link.status === status
-      const haystack = [
-        item.owner.owner_name,
-        item.owner.owner_code,
-        item.owner.application_number,
-        item.owner.identity_or_registration_reference,
-        item.owner.email,
-        item.owner.phone,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-      return matchesStatus && (!query || haystack.includes(query))
+  // FastAPI scopes, filters, counts and paginates the full provider-linked registry.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const value = search.trim()
+      setQuery((current) =>
+        current.search === value ? current : { ...current, search: value, offset: 0 }
+      )
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  useEffect(() => {
+    if (isInitialRender.current) {
+      isInitialRender.current = false
+      return
+    }
+
+    const controller = new AbortController()
+    const params = new URLSearchParams({
+      offset: String(query.offset),
+      limit: String(query.limit),
     })
-  }, [initialPage.items, search, status])
+    if (query.search) params.set("search", query.search)
+    if (query.status !== "all") params.set("status", query.status)
+
+    setLoadingPage(true)
+    setPageError(null)
+    void fetch(`/api/provider/owners/portfolio?${params.toString()}`, {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then((response) => parseResponse<ProviderOwnerPortfolioPage>(response))
+      .then((result) => {
+        if (controller.signal.aborted) return
+        if (!result.items.length && result.total > 0 && query.offset > 0) {
+          // Link removal may leave the last page empty.
+          setQuery((current) => ({
+            ...current,
+            offset: Math.floor((result.total - 1) / current.limit) * current.limit,
+          }))
+          return
+        }
+        setPageData(result)
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setPageError(error instanceof Error ? error.message : "Unable to load vehicle owners.")
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingPage(false)
+      })
+
+    return () => controller.abort()
+  }, [query, reloadCount])
+
+  const totalPages = Math.max(1, Math.ceil(pageData.total / pageData.limit))
+  const currentPage = Math.floor(pageData.offset / pageData.limit) + 1
+  const firstRecord = pageData.total ? pageData.offset + 1 : 0
+  const lastRecord = Math.min(pageData.offset + pageData.items.length, pageData.total)
+  const firstVisiblePage = Math.max(1, Math.min(currentPage - 2, totalPages - 4))
+  const visiblePages = Array.from(
+    { length: Math.min(5, totalPages) },
+    (_, index) => firstVisiblePage + index
+  )
+  const navigateToPage = (nextPage: number) => {
+    if (loadingPage || nextPage < 1 || nextPage > totalPages || nextPage === currentPage) return
+    setQuery((current) => ({ ...current, offset: (nextPage - 1) * current.limit }))
+  }
+  const refreshCurrentPage = () => setReloadCount((value) => value + 1)
 
   const loadDetails = async (
     item: ProviderOwnerPortfolioItem,
@@ -333,6 +398,7 @@ export function ProviderOwnerPortfolioManagement({
       )
       toast.success(decision === "approve" ? "Owner link approved" : "Owner link rejected")
       setDetails(null)
+      refreshCurrentPage()
       router.refresh()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to update the link.")
@@ -384,7 +450,8 @@ export function ProviderOwnerPortfolioManagement({
               <div>
                 <h2 className="font-semibold">Provider owner portfolio</h2>
                 <p className="text-sm text-muted-foreground">
-                  {filtered.length} visible record{filtered.length === 1 ? "" : "s"} from {initialPage.total} total.
+                  {firstRecord}–{lastRecord} of {pageData.total} matching owners
+                  {loadingPage ? " · Loading..." : ""}
                 </p>
               </div>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
@@ -393,13 +460,20 @@ export function ProviderOwnerPortfolioManagement({
                   <Input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search owner, code, NID, phone..."
+                    placeholder="Search all owners, code, NID, phone..."
+                    maxLength={180}
+                    aria-label="Search provider vehicle owners"
                     className="pl-9"
                   />
                 </div>
                 <select
-                  value={status}
-                  onChange={(event) => setStatus(event.target.value)}
+                  value={query.status}
+                  aria-label="Filter owner link status"
+                  onChange={(event) => setQuery((current) => ({
+                    ...current,
+                    status: event.target.value,
+                    offset: 0,
+                  }))}
                   className="h-10 rounded-md border bg-white px-3 text-sm"
                 >
                   <option value="all">All link statuses</option>
@@ -413,8 +487,23 @@ export function ProviderOwnerPortfolioManagement({
               </div>
             </div>
 
-            {filtered.length ? (
-              <div className="overflow-x-auto">
+            {pageError ? (
+              <Alert variant="destructive" className="m-4 w-auto">
+                <AlertTitle>Could not load vehicle owners</AlertTitle>
+                <AlertDescription>{pageError}</AlertDescription>
+                <Button type="button" variant="outline" size="sm" onClick={refreshCurrentPage}>
+                  Retry
+                </Button>
+              </Alert>
+            ) : null}
+            {loadingPage ? (
+              <div role="status" aria-live="polite" className="flex items-center gap-2 border-b px-6 py-3 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Loading owners from server...
+              </div>
+            ) : null}
+
+            {pageData.items.length ? (
+              <div className="overflow-x-auto" aria-busy={loadingPage}>
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
@@ -426,7 +515,7 @@ export function ProviderOwnerPortfolioManagement({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((item) => (
+                    {pageData.items.map((item) => (
                       <TableRow key={item.owner.id}>
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -451,7 +540,7 @@ export function ProviderOwnerPortfolioManagement({
                             <Button
                               size="sm"
                               variant="outline"
-                              disabled={loadingAction !== null}
+                              disabled={loadingAction !== null || loadingPage}
                               onClick={() => void loadDetails(item, "view")}
                             >
                               {loadingAction === `${item.owner.id}:view` ? <Loader2 className="animate-spin" /> : null}
@@ -461,7 +550,7 @@ export function ProviderOwnerPortfolioManagement({
                               <Button
                                 size="icon-sm"
                                 variant="ghost"
-                                disabled={loadingAction !== null}
+                                disabled={loadingAction !== null || loadingPage}
                                 onClick={() => void loadDetails(item, "edit")}
                                 aria-label="Edit owner"
                               >
@@ -484,11 +573,51 @@ export function ProviderOwnerPortfolioManagement({
                 <p className="mt-1 text-sm text-muted-foreground">Adjust the search and link-status filter.</p>
               </div>
             )}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t p-4 sm:px-6" aria-label="Owner list pagination">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <label htmlFor="provider-owner-page-size">Rows per page</label>
+                <select
+                  id="provider-owner-page-size"
+                  className="h-9 rounded-md border bg-white px-2 text-sm"
+                  value={query.limit}
+                  disabled={loadingPage}
+                  onChange={(event) => setQuery((current) => ({
+                    ...current,
+                    offset: 0,
+                    limit: Number(event.target.value),
+                  }))}
+                >
+                  {[10, 25, 50, 100].map((size) => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="mr-2 text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                <Button size="sm" variant="outline" type="button" disabled={loadingPage || currentPage === 1} onClick={() => navigateToPage(1)}>First</Button>
+                <Button size="sm" variant="outline" type="button" disabled={loadingPage || currentPage === 1} onClick={() => navigateToPage(currentPage - 1)}>Previous</Button>
+                {visiblePages.map((pageNumber) => (
+                  <Button
+                    key={pageNumber}
+                    size="sm"
+                    type="button"
+                    variant={pageNumber === currentPage ? "default" : "outline"}
+                    aria-current={pageNumber === currentPage ? "page" : undefined}
+                    disabled={loadingPage || pageNumber === currentPage}
+                    onClick={() => navigateToPage(pageNumber)}
+                  >
+                    {pageNumber}
+                  </Button>
+                ))}
+                <Button size="sm" variant="outline" type="button" disabled={loadingPage || currentPage === totalPages} onClick={() => navigateToPage(currentPage + 1)}>Next</Button>
+                <Button size="sm" variant="outline" type="button" disabled={loadingPage || currentPage === totalPages} onClick={() => navigateToPage(totalPages)}>Last</Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <EditOwnerDialog target={editing} onOpenChange={(open) => !open && setEditing(null)} />
+      <EditOwnerDialog target={editing} onOpenChange={(open) => !open && setEditing(null)} onSaved={refreshCurrentPage} />
 
       <Dialog open={Boolean(details)} onOpenChange={(open) => !open && setDetails(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">

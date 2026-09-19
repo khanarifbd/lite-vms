@@ -13,8 +13,10 @@ export async function getProviderOwnerSummary() {
 }
 
 export async function getProviderOwnerPortfolio() {
+  // Server-render only the first page; subsequent pages and filters are fetched
+  // from the scoped portfolio endpoint rather than filtering the first 100 rows.
   return authenticatedBackendFetch<ProviderOwnerPortfolioPage>(
-    "/providers/me/owners/portfolio?limit=100"
+    "/providers/me/owners/portfolio?offset=0&limit=25"
   )
 }
 
