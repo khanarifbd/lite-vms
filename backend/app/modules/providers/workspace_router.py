@@ -15,7 +15,6 @@ from app.modules.providers.service import (
     replace_allowed_ips,
 )
 from app.modules.providers.workspace_schema import ProviderWorkspaceSettingsUpdate
-from app.modules.tracking.service import get_or_create_provider_source
 
 router = APIRouter(prefix="/providers/me", tags=["VTS Provider Workspace"])
 
@@ -51,7 +50,6 @@ async def update_my_provider_settings(
             detail="Operational settings are available only after provider approval",
         )
 
-    await get_or_create_provider_source(session, provider)
     allowed_ips = payload.allowed_server_ips
     changes = payload.model_dump(exclude_unset=True, exclude={"allowed_server_ips"})
     field_map = {"technical_contact_mobile": "technical_contact_phone"}
