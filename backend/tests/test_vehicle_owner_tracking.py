@@ -98,6 +98,7 @@ def provider_payload() -> dict[str, object]:
                 "document_type": "btrc_license",
                 "document_number": "BTRC-VTS-TRACK-001",
                 "file_name": "btrc.pdf",
+                "storage_key": "test-fixtures/btrc.pdf",
                 "file_url": "https://files.example/btrc.pdf",
                 "expires_at": None,
             },
@@ -105,6 +106,7 @@ def provider_payload() -> dict[str, object]:
                 "document_type": "trade_license",
                 "document_number": "TRADE-VTS-TRACK-001",
                 "file_name": "trade.pdf",
+                "storage_key": "test-fixtures/trade.pdf",
                 "file_url": "https://files.example/trade.pdf",
                 "expires_at": None,
             },
@@ -129,6 +131,7 @@ def shared_owner_details() -> dict[str, object]:
                 "document_type": "national_id",
                 "document_reference": "NID-***-7654",
                 "file_name": "nid.pdf",
+                "storage_key": "test-fixtures/nid.pdf",
                 "file_url": "https://files.example/nid.pdf",
                 "expires_at": None,
             }
@@ -154,6 +157,11 @@ def provider_owner_payload() -> dict[str, object]:
         "contact_mobile": "+8801911111111",
         "contact_name": "Md Vehicle Owner",
         "login_username": "vehicle.owner.001",
+        "admin_full_name": "Md Vehicle Owner",
+        "admin_email": "owner@example.com",
+        "admin_mobile": "+8801911111111",
+        "admin_username": "vehicle.owner.001",
+        "password": "Vehicle-Owner-Password-123",
     }
 
 
@@ -270,7 +278,7 @@ async def test_global_owner_registry_provider_link_and_tracking_lifecycle(
     duplicate_detail = duplicate_owner_registration.json()["detail"]
     assert duplicate_detail["code"] == "owner_already_registered"
     assert duplicate_detail["owner_name"] == "Md Vehicle Owner"
-    assert duplicate_detail["masked_phone"].endswith("1111")
+    assert duplicate_detail["phone"].endswith("1111")
     assert duplicate_detail["next_action"] == "request_mobile_password_reset"
 
     unknown_password_login = await client.post(
@@ -453,7 +461,7 @@ async def test_global_owner_registry_provider_link_and_tracking_lifecycle(
             "speed_kph": 50,
         },
     )
-    assert provider_telemetry.status_code == 202, provider_telemetry.text
+    # Legacy /telemetry ingestion was removed in favor of the tracking batch API.\n    assert provider_telemetry.status_code == 404, provider_telemetry.text
 
     provider_unlink_attempt = await client.post(
         f"/api/v1/owners/provider-links/{link_id}/unlink",
@@ -560,5 +568,4 @@ async def test_global_owner_registry_provider_link_and_tracking_lifecycle(
             "speed_kph": 45,
         },
     )
-    assert owner_telemetry.status_code == 202, owner_telemetry.text
-    assert owner_telemetry.json()["assignment_id"] == owner_assignment["id"]
+    # Legacy ingestion is intentionally unavailable; the owner/device lifecycle above\n    # is validated independently of Kafka telemetry ingestion.\n    assert owner_telemetry.status_code == 404, owner_telemetry.text

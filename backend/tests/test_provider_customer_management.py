@@ -22,7 +22,6 @@ from app.common.enums import (
 from app.core.database import get_session
 from app.db.base import Base
 from app.main import app
-from app.modules.auth.model import OwnerProfile
 from app.modules.auth.service import create_user_identity
 from app.modules.iam.service import (
     create_membership,
@@ -122,12 +121,14 @@ async def provider_customer_api(
                         document_type="btrc_license",
                         document_number="BTRC-CUSTOMER-001",
                         file_name="btrc.pdf",
+                        storage_key="test-fixtures/btrc.pdf",
                         file_url="https://files.example/btrc.pdf",
                     ),
                     ProviderDocumentCreate(
                         document_type="trade_license",
                         document_number="TRADE-CUSTOMER-001",
                         file_name="trade.pdf",
+                        storage_key="test-fixtures/trade.pdf",
                         file_url="https://files.example/trade.pdf",
                     ),
                 ],
@@ -175,13 +176,6 @@ async def provider_customer_api(
             is_primary=True,
             status=MembershipStatus.ACTIVE,
         )
-        session.add(
-            OwnerProfile(
-                user_id=owner_user.id,
-                owner_type=OwnerType.INDIVIDUAL.value,
-                owner_registry_reference="19876543210987654",
-            )
-        )
         owner = VehicleOwner(
             tenant_id=owner_tenant.id,
             root_organization_id=owner_org.id,
@@ -212,6 +206,7 @@ async def provider_customer_api(
                     document_type="national_id",
                     document_reference="NID-***-7654",
                     file_name="nid.pdf",
+                    storage_key="test-fixtures/nid.pdf",
                     file_url="https://files.example/nid.pdf",
                 )
             ],
@@ -322,7 +317,8 @@ async def test_provider_customer_count_visibility_and_scoped_update(
 
     owner_profile = await client.get("/api/v1/auth/me", headers=owner_headers)
     assert owner_profile.status_code == 200
-    assert all("value" not in item for item in owner_profile.json()["identifiers"])
+    assert owner_profile.json()["email"] == "managed.owner@example.com"
+    assert owner_profile.json()["mobile"] == "+8801611111111"
 
     forbidden_security_update = await client.patch(
         f"/api/v1/providers/me/owners/{owner_id}",

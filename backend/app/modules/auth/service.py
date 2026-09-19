@@ -392,52 +392,74 @@ async def build_user_read(session: AsyncSession, user: User) -> UserRead:
             .order_by(UserIdentifier.is_primary.desc(), UserIdentifier.created_at)
         )
     )
-    memberships = list(
-        await session.scalars(
-            select(OrganizationMembership)
-            .where(OrganizationMembership.user_id == user.id)
-            .order_by(OrganizationMembership.is_primary.desc(), OrganizationMembership.created_at)
-        )
-    )
-    membership_reads: list[MembershipRead] = []
-    for membership in memberships:
-        tenant = await session.get(Tenant, membership.tenant_id)
-        organization = await session.get(Organization, membership.organization_id)
-        role_codes = list(
-            await session.scalars(
-                select(Role.code)
-                .join(MembershipRole, MembershipRole.role_id == Role.id)
-                .where(MembershipRole.membership_id == membership.id)
-                .order_by(Role.code)
-            )
-        )
-        if tenant is None or organization is None:
-            continue
-        membership_reads.append(
-            MembershipRead(
-                public_id=membership.public_id,
-                tenant_public_id=tenant.public_id,
-                tenant_name=tenant.name,
-                organization_public_id=organization.public_id,
-                organization_name=organization.name_en,
-                organization_code=organization.code,
-                status=membership.status,
-                member_code=membership.member_code,
-                designation=membership.designation,
-                is_primary=membership.is_primary,
-                role_codes=role_codes,
-                valid_from=membership.valid_from,
-                valid_to=membership.valid_to,
-            )
-        )
 
-    identifiers_by_type = {
-        item.identifier_type: item for item in identifier_rows
-    }
+    membership_rows = (
+        await session.execute(
+            select(OrganizationMembership, Tenant, Organization, Role.code)
+            .join(Tenant, Tenant.id == OrganizationMembership.tenant_id)
+            .join(Organization, Organization.id == OrganizationMembership.organization_id)
+            .outerjoin(
+                MembershipRole,
+                MembershipRole.membership_id == OrganizationMembership.id,
+            )
+            .outerjoin(Role, Role.id == MembershipRole.role_id)
+            .where(OrganizationMembership.user_id == user.id)
+            .order_by(
+                OrganizationMembership.is_primary.desc(),
+                OrganizationMembership.created_at,
+                Role.code,
+            )
+        )
+    ).all()
+
+    membership_order: list[int] = []
+    membership_data: dict[
+        int,
+        tuple[OrganizationMembership, Tenant, Organization, list[str]],
+    ] = {}
+    for membership, tenant, organization, role_code in membership_rows:
+        entry = membership_data.get(membership.id)
+        if entry is None:
+            role_codes: list[str] = []
+            membership_data[membership.id] = (
+                membership,
+                tenant,
+                organization,
+                role_codes,
+            )
+            membership_order.append(membership.id)
+        else:
+            role_codes = entry[3]
+        if role_code is not None and role_code not in role_codes:
+            role_codes.append(role_code)
+
+    membership_reads = [
+        MembershipRead(
+            public_id=membership.public_id,
+            tenant_public_id=tenant.public_id,
+            tenant_name=tenant.name,
+            organization_public_id=organization.public_id,
+            organization_name=organization.name_en,
+            organization_code=organization.code,
+            status=membership.status,
+            member_code=membership.member_code,
+            designation=membership.designation,
+            is_primary=membership.is_primary,
+            role_codes=role_codes,
+            valid_from=membership.valid_from,
+            valid_to=membership.valid_to,
+        )
+        for membership_id in membership_order
+        for membership, tenant, organization, role_codes in [membership_data[membership_id]]
+    ]
+
+    identifiers_by_type = {item.identifier_type: item for item in identifier_rows}
     username_identifier = identifiers_by_type.get(IdentifierType.USERNAME)
     email_identifier = identifiers_by_type.get(IdentifierType.EMAIL)
     mobile_identifier = identifiers_by_type.get(IdentifierType.MOBILE)
-    security = await get_security(session, user.id)
+    security = getattr(user, "_security", None)
+    if security is None:
+        security = await get_security(session, user.id)
     primary_membership = next(
         (item for item in membership_reads if item.is_primary),
         membership_reads[0] if membership_reads else None,

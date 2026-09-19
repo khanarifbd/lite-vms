@@ -2,18 +2,18 @@ import { LockKeyhole, Plus, ShieldAlert, UsersRound } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
-import { ProviderOwnerManagement } from "@/components/provider/provider-owner-management"
+import { ProviderOwnerPortfolioManagement } from "@/components/provider/provider-owner-portfolio-management"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import type {
-  ProviderOwnerPage,
+  ProviderOwnerPortfolioPage,
   ProviderOwnerSummary,
 } from "@/features/provider/owner-types"
 import { USER_ROLES, userHasAnyRole, userHasRole } from "@/lib/auth/roles"
 import { getAuthenticatedUser } from "@/lib/auth/server"
 import {
-  getProviderOwners,
+  getProviderOwnerPortfolio,
   getProviderOwnerSummary,
 } from "@/lib/provider/owner-server"
 import { getMyProviderApplication } from "@/lib/provider/server"
@@ -71,10 +71,13 @@ export default async function ProviderOwnersPage() {
   }
 
   let summary: ProviderOwnerSummary | null = null
-  let owners: ProviderOwnerPage | null = null
+  let owners: ProviderOwnerPortfolioPage | null = null
   let loadError: string | null = null
   try {
-    ;[summary, owners] = await Promise.all([getProviderOwnerSummary(), getProviderOwners()])
+    ;[summary, owners] = await Promise.all([
+      getProviderOwnerSummary(),
+      getProviderOwnerPortfolio(),
+    ])
   } catch (error) {
     loadError = error instanceof Error ? error.message : "The provider owner registry is currently unavailable."
   }
@@ -104,10 +107,9 @@ export default async function ProviderOwnersPage() {
             </Button>
           </div>
         ) : null}
-        <ProviderOwnerManagement
+        <ProviderOwnerPortfolioManagement
           initialPage={owners}
           summary={summary}
-          canRegister={false}
           canManage={userHasAnyRole(user, [USER_ROLES.vtsAdmin, USER_ROLES.vtsOperator])}
         />
       </div>

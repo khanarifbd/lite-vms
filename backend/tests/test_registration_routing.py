@@ -58,6 +58,7 @@ def owner_payload(*, email: str, identity_reference: str) -> dict[str, object]:
                 "document_type": "national_id",
                 "document_reference": identity_reference,
                 "file_name": "identity.pdf",
+                "storage_key": "test-fixtures/identity.pdf",
                 "file_url": "https://files.example/identity.pdf",
                 "expires_at": None,
             }

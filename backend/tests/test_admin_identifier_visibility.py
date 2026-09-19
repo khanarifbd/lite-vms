@@ -99,7 +99,7 @@ async def identifier_visibility_api(
 
 
 @pytest.mark.asyncio
-async def test_super_admin_sees_values_but_self_profile_stays_masked(
+async def test_admin_can_view_authorized_identifiers_and_user_sees_own_values(
     identifier_visibility_api: tuple[AsyncClient, dict[str, str], str],
 ) -> None:
     client, admin_headers, target_public_id = identifier_visibility_api
@@ -125,4 +125,6 @@ async def test_super_admin_sees_values_but_self_profile_stays_masked(
     target_headers = {"Authorization": f"Bearer {target_login.json()['access_token']}"}
     my_profile = await client.get("/api/v1/auth/me", headers=target_headers)
     assert my_profile.status_code == 200
-    assert all("value" not in item for item in my_profile.json()["identifiers"])
+    own_identifiers = my_profile.json()["identifiers"]
+    assert next(item for item in own_identifiers if item["identifier_type"] == "email")["value"] == "target@example.com"
+    assert next(item for item in own_identifiers if item["identifier_type"] == "mobile")["value"] == "+8801712345678"
