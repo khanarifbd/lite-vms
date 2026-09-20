@@ -120,6 +120,11 @@ async def build_provider_customer_read(
         owner=await build_owner_read(session, owner),
         account=account,
         can_manage=link.status == OwnerProviderLinkStatus.ACTIVE,
+        can_reset_password=(
+            link.status == OwnerProviderLinkStatus.ACTIVE
+            and owner.created_by_provider_id == link.provider_id
+            and account is not None
+        ),
     )
 
 
