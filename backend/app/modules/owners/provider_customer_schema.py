@@ -84,7 +84,7 @@ class ProviderOwnerCustomerPage(BaseModel):
 class ProviderOwnerPasswordReset(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    new_password: str = Field(min_length=12, max_length=128)
+    new_password: str = Field(min_length=6, max_length=128)
     reason: str = Field(min_length=10, max_length=500)
 
 
