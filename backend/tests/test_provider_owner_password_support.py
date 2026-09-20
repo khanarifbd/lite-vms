@@ -17,7 +17,7 @@ async def test_provider_owner_password_support_checks_scope_and_revokes_sessions
     client, provider_headers, owner_headers, owner_id = provider_customer_api
     path = f"/api/v1/providers/me/owners/{owner_id}/reset-password"
     payload = {
-        "new_password": "NewOwner-Temporary-Password-123",
+        "new_password": "A7bc8d",
         "reason": "Verified registered owner mobile before account recovery",
     }
 
@@ -36,6 +36,13 @@ async def test_provider_owner_password_support_checks_scope_and_revokes_sessions
     )
     assert before.status_code == 200, before.text
     assert before.json()["can_reset_password"] is True
+
+    too_short = await client.post(
+        path,
+        headers=provider_headers,
+        json={**payload, "new_password": "Ab123"},
+    )
+    assert too_short.status_code == 422, too_short.text
 
     reset = await client.post(path, headers=provider_headers, json=payload)
     assert reset.status_code == 200, reset.text

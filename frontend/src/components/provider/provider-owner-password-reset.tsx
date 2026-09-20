@@ -32,8 +32,8 @@ export function ProviderOwnerPasswordReset({
       setError("Verify the account holder and enter a reason (at least 10 characters).")
       return
     }
-    if (newPassword.length < 12 || newPassword.length > 128) {
-      setError("Enter a password containing 12–128 characters.")
+    if (newPassword.length < 6 || newPassword.length > 128) {
+      setError("Enter a password containing 6–128 characters.")
       return
     }
     if (newPassword !== confirmPassword) {
@@ -99,11 +99,11 @@ export function ProviderOwnerPasswordReset({
                 id="owner-assigned-password"
                 type={visible ? "text" : "password"}
                 autoComplete="new-password"
-                minLength={12}
+                minLength={6}
                 maxLength={128}
                 value={newPassword}
                 onChange={(event) => { setNewPassword(event.target.value); setCompleted(false) }}
-                placeholder="Enter a secure password (12+ characters)"
+                placeholder="Enter a secure password (6+ characters)"
                 required
               />
               <Button type="button" size="icon" variant="outline" onClick={() => setVisible((current) => !current)} aria-label={visible ? "Hide password" : "Show password"}>
@@ -117,7 +117,7 @@ export function ProviderOwnerPasswordReset({
               id="owner-confirm-password"
               type="password"
               autoComplete="new-password"
-              minLength={12}
+              minLength={6}
               maxLength={128}
               value={confirmPassword}
               onChange={(event) => { setConfirmPassword(event.target.value); setCompleted(false) }}
@@ -129,7 +129,7 @@ export function ProviderOwnerPasswordReset({
             <Label htmlFor="owner-reset-reason">Support reason *</Label>
             <Textarea id="owner-reset-reason" value={reason} onChange={(event) => setReason(event.target.value)} minLength={10} maxLength={500} rows={3} required placeholder="How did you verify the account holder and confirm this request?" />
           </div>
-          <Button type="submit" disabled={pending || !verified || reason.trim().length < 10 || newPassword.length < 12 || newPassword !== confirmPassword} variant="outline" className="border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100">
+          <Button type="submit" disabled={pending || !verified || reason.trim().length < 10 || newPassword.length < 6 || newPassword !== confirmPassword} variant="outline" className="border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100">
             {pending ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" />} Set owner password
           </Button>
         </form>
