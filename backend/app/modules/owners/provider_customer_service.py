@@ -443,6 +443,10 @@ async def update_provider_customer(
     }
     sensitive_registry_fields = {
         "owner_name",
+        "date_of_birth",
+        "company_type",
+        "incorporation_date",
+        "authorized_person_name",
         "trade_license_number",
         "tin_number",
         "bin_number",
