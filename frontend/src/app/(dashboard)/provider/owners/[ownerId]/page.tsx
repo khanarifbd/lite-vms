@@ -3,6 +3,7 @@ import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 
 import { ProviderOwnerPasswordReset } from "@/components/provider/provider-owner-password-reset"
+import { ProviderOwnerLinkDecision } from "@/components/provider/provider-owner-link-decision"
 import { StatusBadge } from "@/components/dashboard/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -157,6 +158,12 @@ export default async function ProviderOwnerDetailsPage({
             )) : <p className="text-sm text-muted-foreground">No documents uploaded.</p>}
           </CardContent>
         </Card>
+        {userHasAnyRole(user, manageRoles) && link.status === "pending_provider_approval" ? (
+          <Card>
+            <CardHeader><CardTitle>Provider-owner link request</CardTitle></CardHeader>
+            <CardContent><ProviderOwnerLinkDecision linkId={link.id} /></CardContent>
+          </Card>
+        ) : null}
         {mayReset ? <ProviderOwnerPasswordReset ownerId={owner.id} ownerName={owner.owner_name} /> : null}
         {userHasRole(user, USER_ROLES.vtsAdmin) && account && customer.can_manage && !customer.can_reset_password ? (
           <p className="rounded-xl border bg-slate-50 px-4 py-3 text-sm text-muted-foreground">
