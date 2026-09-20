@@ -40,7 +40,7 @@ import type {
   OwnerDriverConnection,
   OwnerDriverLinkPage,
   OwnerDriverLookupResult,
-  OwnerVehiclePage,
+  OwnerDriverVehicleOption,
 } from "@/features/owner/types"
 
 type ConnectionAction = "approve" | "reject" | "cancel" | "disconnect"
@@ -81,7 +81,7 @@ export function DriverConnectionWorkspace({
   assignments,
 }: {
   links: OwnerDriverLinkPage
-  vehicles: OwnerVehiclePage
+  vehicles: OwnerDriverVehicleOption[]
   assignments: OwnerDriverAssignment[]
 }) {
   const router = useRouter()
@@ -105,12 +105,12 @@ export function DriverConnectionWorkspace({
   )
   const assignableVehicles = useMemo(
     () =>
-      vehicles.items.filter(
+      vehicles.filter(
         (vehicle) =>
           vehicle.verification_status === "verified" &&
           vehicle.status === "active"
       ),
-    [vehicles.items]
+    [vehicles]
   )
   const assignmentByDriver = useMemo(
     () =>
@@ -121,9 +121,18 @@ export function DriverConnectionWorkspace({
       ),
     [assignments]
   )
+  const rosterCountByVehicle = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const assignment of assignments) {
+      if (assignment.status === "active") {
+        counts.set(assignment.vehicle_id, (counts.get(assignment.vehicle_id) || 0) + 1)
+      }
+    }
+    return counts
+  }, [assignments])
   const vehicleById = useMemo(
-    () => new Map(vehicles.items.map((vehicle) => [vehicle.id, vehicle])),
-    [vehicles.items]
+    () => new Map(vehicles.map((vehicle) => [vehicle.id, vehicle])),
+    [vehicles]
   )
 
   async function lookupDriver() {
@@ -548,7 +557,7 @@ export function DriverConnectionWorkspace({
                   <option value="">Select a vehicle</option>
                   {assignableVehicles.map((vehicle) => (
                     <option key={vehicle.id} value={vehicle.id}>
-                      {vehicle.registration_number_display || vehicle.registration_number}{vehicle.current_driver_name ? ` · Current: ${vehicle.current_driver_name}` : ""}
+                      {vehicle.registration_number_display || vehicle.registration_number}{rosterCountByVehicle.get(vehicle.id) ? ` · ${rosterCountByVehicle.get(vehicle.id)} assigned` : ""}
                     </option>
                   ))}
                 </select>

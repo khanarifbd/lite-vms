@@ -4,6 +4,7 @@ import type {
   OwnerApplication,
   OwnerDashboardData,
   OwnerDriverAssignment,
+  OwnerDriverVehicleOption,
   OwnerDriverLinkPage,
   OwnerDocument,
   OwnerProviderConnectionWorkspace,
@@ -33,6 +34,12 @@ export async function getMyOwnerDocuments() {
 export async function getOwnerDriverLinks() {
   return authenticatedBackendFetch<OwnerDriverLinkPage>(
     "/drivers/owner-links?offset=0&limit=200"
+  )
+}
+
+export async function getOwnerDriverVehicleOptions() {
+  return authenticatedBackendFetch<OwnerDriverVehicleOption[]>(
+    "/owners/me/driver-vehicle-options"
   )
 }
 

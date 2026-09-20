@@ -10,6 +10,7 @@ import {
   FileUser,
   Gauge,
   LockKeyhole,
+  LoaderCircle,
   Menu,
   Network,
   Settings,
@@ -18,7 +19,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import type { ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 
 import { LogoutButton } from "@/components/auth/logout-button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -105,6 +106,11 @@ function Brand() {
 
 function Navigation({ mobile = false }: { mobile?: boolean }) {
   const pathname = usePathname()
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
+
+  useEffect(() => {
+    setPendingHref(null)
+  }, [pathname])
 
   return (
     <nav className="flex-1 space-y-7 overflow-y-auto px-4 py-6">
@@ -122,15 +128,20 @@ function Navigation({ mobile = false }: { mobile?: boolean }) {
               const link = (
                 <Link
                   href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => { if (!active) setPendingHref(item.href) }}
                   className={cn(
                     "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors",
                     active
                       ? "bg-white text-emerald-950 shadow-sm"
-                      : "text-emerald-50/75 hover:bg-white/10 hover:text-white"
+                      : pendingHref === item.href
+                        ? "bg-white/20 text-white ring-1 ring-white/30"
+                        : "text-emerald-50/75 hover:bg-white/10 hover:text-white"
                   )}
                 >
                   <Icon aria-hidden="true" className="size-4.5" />
-                  <span>{item.label}</span>
+                  <span className="flex-1">{item.label}</span>
+                  {pendingHref === item.href && !active ? <LoaderCircle aria-label="Loading page" className="size-4 animate-spin" /> : null}
                 </Link>
               )
 

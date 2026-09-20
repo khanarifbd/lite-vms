@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button"
 import type {
   OwnerDriverAssignment,
   OwnerDriverLinkPage,
-  OwnerVehiclePage,
+  OwnerDriverVehicleOption,
 } from "@/features/owner/types"
 import {
-  getMyVehicles,
+  getOwnerDriverVehicleOptions,
   getOwnerDriverAssignments,
   getOwnerDriverLinks,
 } from "@/lib/owner/server"
@@ -20,14 +20,14 @@ export const dynamic = "force-dynamic"
 
 export default async function OwnerDriversPage() {
   let links: OwnerDriverLinkPage | null = null
-  let vehicles: OwnerVehiclePage | null = null
+  let vehicles: OwnerDriverVehicleOption[] | null = null
   let assignments: OwnerDriverAssignment[] | null = null
   let loadError: string | null = null
 
   try {
     ;[links, vehicles, assignments] = await Promise.all([
       getOwnerDriverLinks(),
-      getMyVehicles({ limit: 100 }),
+      getOwnerDriverVehicleOptions(),
       getOwnerDriverAssignments(),
     ])
   } catch (error) {

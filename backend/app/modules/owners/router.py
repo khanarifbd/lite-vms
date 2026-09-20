@@ -890,6 +890,45 @@ async def read_my_owner_application(
     return await build_owner_read(session, owner)
 
 
+@router.get("/me/driver-vehicle-options")
+async def owner_driver_vehicle_options(
+    actor: Annotated[User, Depends(require_roles(UserRole.VEHICLE_OWNER))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[dict[str, str]]:
+    """Compact owner-scoped vehicle choices, without expensive registry statistics.
+
+    The driver workspace requires all assignable vehicles (not just the first
+    100 records). Restrict by the authenticated owner and return only the fields
+    needed by the roster UI.
+    """
+    owner = await get_owner_for_user(session, actor.id)
+    if owner is None:
+        raise HTTPException(status_code=404, detail="Vehicle owner not found")
+    rows = (
+        await session.execute(
+            select(
+                Vehicle.id,
+                Vehicle.registration_number,
+                Vehicle.registration_number_display,
+                Vehicle.verification_status,
+                Vehicle.status,
+            )
+            .where(Vehicle.owner_id == owner.id)
+            .order_by(Vehicle.created_at.desc(), Vehicle.id.desc())
+        )
+    ).all()
+    return [
+        {
+            "id": str(row.id),
+            "registration_number": row.registration_number,
+            "registration_number_display": row.registration_number_display or "",
+            "verification_status": row.verification_status.value,
+            "status": row.status.value,
+        }
+        for row in rows
+    ]
+
+
 @router.get("/{owner_id}", response_model=OwnerApplicationRead)
 async def read_owner_application(
     owner_id: uuid.UUID,

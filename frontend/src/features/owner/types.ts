@@ -310,3 +310,13 @@ export type OwnerDriverLookupResult = {
   can_send_request: boolean
   next_action: string
 }
+
+
+/** Minimal owner-scoped vehicle choice for driver roster management. */
+export type OwnerDriverVehicleOption = {
+  id: string
+  registration_number: string
+  registration_number_display: string
+  verification_status: string
+  status: string
+}

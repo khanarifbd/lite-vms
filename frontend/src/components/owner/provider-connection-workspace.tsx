@@ -14,7 +14,7 @@ import {
   XCircle,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { StatusBadge } from "@/components/dashboard/status-badge"
@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type {
+  OwnerConnectionVehicle,
   OwnerProviderConnection,
   OwnerProviderConnectionWorkspace,
   OwnerProviderDirectoryItem,
@@ -108,6 +109,10 @@ export function ProviderConnectionWorkspace({
   const [scopeTarget, setScopeTarget] = useState<OwnerProviderConnection | null>(null)
   const [scopeMode, setScopeMode] = useState<OwnerProviderVehicleScopeMode>("all")
   const [selectedVehicleIds, setSelectedVehicleIds] = useState<string[]>([])
+  const [scopeVehicles, setScopeVehicles] = useState<OwnerConnectionVehicle[]>([])
+  const [scopeLoading, setScopeLoading] = useState(false)
+  const [scopeError, setScopeError] = useState<string | null>(null)
+  const [scopeRefresh, setScopeRefresh] = useState(0)
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
@@ -146,6 +151,36 @@ export function ProviderConnectionWorkspace({
     setSelectedVehicleIds(connection.selected_vehicle_ids)
     setNotes("")
   }
+
+  // Opening Provider connections no longer loads every vehicle or GPS assignment.
+  // Load the authorized fleet only while the vehicle-access dialog is open.
+  useEffect(() => {
+    if (!scopeTarget) {
+      setScopeVehicles([])
+      setScopeError(null)
+      return
+    }
+    const controller = new AbortController()
+    setScopeLoading(true)
+    setScopeError(null)
+    void fetch("/api/owner/provider-connections/vehicles", {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then((response) => parseResponse<OwnerConnectionVehicle[]>(response))
+      .then((vehicles) => {
+        if (!controller.signal.aborted) setScopeVehicles(vehicles)
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setScopeError(error instanceof Error ? error.message : "Unable to load vehicles.")
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setScopeLoading(false)
+      })
+    return () => controller.abort()
+  }, [scopeTarget, scopeRefresh])
 
   const toggleVehicle = (vehicleId: string) => {
     setSelectedVehicleIds((current) =>
@@ -688,8 +723,12 @@ export function ProviderConnectionWorkspace({
                     <Badge variant="secondary">{selectedVehicleIds.length} selected</Badge>
                   </div>
                   <div className="max-h-72 space-y-2 overflow-y-auto rounded-2xl border p-3">
-                    {workspace.vehicles.length ? (
-                      workspace.vehicles.map((vehicle) => (
+                    {scopeLoading ? (
+                      <p role="status" className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Loading vehicles...</p>
+                    ) : scopeError ? (
+                      <div role="alert" className="space-y-3 px-4 py-6 text-sm text-rose-700"><p>{scopeError}</p><Button type="button" size="sm" variant="outline" onClick={() => setScopeRefresh((count) => count + 1)}>Retry</Button></div>
+                    ) : scopeVehicles.length ? (
+                      scopeVehicles.map((vehicle) => (
                         <label
                           key={vehicle.id}
                           className="flex cursor-pointer items-start gap-3 rounded-xl border p-3"
@@ -745,7 +784,7 @@ export function ProviderConnectionWorkspace({
                 </Button>
                 <Button
                   onClick={saveScope}
-                  disabled={submitting}
+                  disabled={submitting || (scopeMode === "selected" && (scopeLoading || Boolean(scopeError)))}
                   className="bg-emerald-800 text-white hover:bg-emerald-900"
                 >
                   {submitting ? <Loader2 className="animate-spin" /> : <SlidersHorizontal />}
