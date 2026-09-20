@@ -147,6 +147,7 @@ export type ProviderOwnerCustomer = {
     last_login_at: string | null
   } | null
   can_manage: boolean
+  can_reset_password: boolean
 }
 
 export type ProviderOwnerPage = {
