@@ -40,7 +40,7 @@ import type {
   OwnerDriverConnection,
   OwnerDriverLinkPage,
   OwnerDriverLookupResult,
-  OwnerVehiclePage,
+  OwnerDriverVehicleOption,
 } from "@/features/owner/types"
 
 type ConnectionAction = "approve" | "reject" | "cancel" | "disconnect"
@@ -81,7 +81,7 @@ export function DriverConnectionWorkspace({
   assignments,
 }: {
   links: OwnerDriverLinkPage
-  vehicles: OwnerVehiclePage
+  vehicles: OwnerDriverVehicleOption[]
   assignments: OwnerDriverAssignment[]
 }) {
   const router = useRouter()
@@ -105,12 +105,12 @@ export function DriverConnectionWorkspace({
   )
   const assignableVehicles = useMemo(
     () =>
-      vehicles.items.filter(
+      vehicles.filter(
         (vehicle) =>
           vehicle.verification_status === "verified" &&
           vehicle.status === "active"
       ),
-    [vehicles.items]
+    [vehicles]
   )
   const assignmentByDriver = useMemo(
     () =>
@@ -122,8 +122,8 @@ export function DriverConnectionWorkspace({
     [assignments]
   )
   const vehicleById = useMemo(
-    () => new Map(vehicles.items.map((vehicle) => [vehicle.id, vehicle])),
-    [vehicles.items]
+    () => new Map(vehicles.map((vehicle) => [vehicle.id, vehicle])),
+    [vehicles]
   )
 
   async function lookupDriver() {
