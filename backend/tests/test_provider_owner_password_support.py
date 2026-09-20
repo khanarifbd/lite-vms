@@ -52,7 +52,16 @@ async def test_provider_owner_password_support_checks_scope_and_revokes_sessions
         data={"username": "linked.owner", "password": payload["new_password"]},
     )
     assert new_login.status_code == 200, new_login.text
-    assert new_login.json()["must_change_password"] is True
+    assert new_login.json()["must_change_password"] is False
+
+    # The provider-assigned password remains valid after signing in; the
+    # first successful login must not force the owner into a change flow.
+    repeat_login = await client.post(
+        "/api/v1/auth/login",
+        data={"username": "linked.owner", "password": payload["new_password"]},
+    )
+    assert repeat_login.status_code == 200, repeat_login.text
+    assert repeat_login.json()["must_change_password"] is False
 
 
 @pytest.mark.asyncio
