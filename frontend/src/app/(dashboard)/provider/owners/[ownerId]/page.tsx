@@ -153,7 +153,20 @@ export default async function ProviderOwnerDetailsPage({
                   <p className="text-sm font-medium capitalize">{document.document_type.replaceAll("_", " ")}</p>
                   <p className="text-xs text-muted-foreground">{show(document.file_name)} · {show(document.document_reference)}</p>
                 </div>
-                <StatusBadge status={document.status} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={document.status} />
+                  {document.storage_key ? (
+                    <Button asChild size="sm" variant="outline">
+                      <a
+                        href={`/api/documents?${new URLSearchParams({ storageKey: document.storage_key, fileName: document.file_name || "owner-document.pdf", download: "0" })}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Open document
+                      </a>
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             )) : <p className="text-sm text-muted-foreground">No documents uploaded.</p>}
           </CardContent>
