@@ -102,37 +102,47 @@ async def build_connection_read(
     *,
     owner: VehicleOwner,
     link: VTSProviderOwnerLink,
+    provider: VTSProvider | None = None,
+    selected_ids: list[uuid.UUID] | None = None,
+    total_vehicles: int | None = None,
+    created_vehicle_count: int | None = None,
+    active_tracking_count: int | None = None,
 ) -> OwnerProviderConnectionRead:
-    provider = await session.get(VTSProvider, link.provider_id)
+    if provider is None:
+        provider = await session.get(VTSProvider, link.provider_id)
     if provider is None:
         raise RuntimeError("Provider connection scope is missing")
 
-    selected_ids = await selected_vehicle_ids(session, link.id)
-    total_vehicles = int(
-        await session.scalar(select(func.count(Vehicle.id)).where(Vehicle.owner_id == owner.id))
-        or 0
-    )
-    created_vehicle_count = int(
-        await session.scalar(
-            select(func.count(Vehicle.id)).where(
-                Vehicle.owner_id == owner.id,
-                Vehicle.created_by_provider_id == provider.id,
-            )
+    if selected_ids is None:
+        selected_ids = await selected_vehicle_ids(session, link.id)
+    if total_vehicles is None:
+        total_vehicles = int(
+            await session.scalar(select(func.count(Vehicle.id)).where(Vehicle.owner_id == owner.id))
+            or 0
         )
-        or 0
-    )
-    active_tracking_count = int(
-        await session.scalar(
-            select(func.count(VehicleDeviceAssignment.id))
-            .join(Vehicle, Vehicle.id == VehicleDeviceAssignment.vehicle_id)
-            .where(
-                Vehicle.owner_id == owner.id,
-                VehicleDeviceAssignment.provider_id == provider.id,
-                VehicleDeviceAssignment.status.in_(VISIBLE_TRACKING_STATUSES),
+    if created_vehicle_count is None:
+        created_vehicle_count = int(
+            await session.scalar(
+                select(func.count(Vehicle.id)).where(
+                    Vehicle.owner_id == owner.id,
+                    Vehicle.created_by_provider_id == provider.id,
+                )
             )
+            or 0
         )
-        or 0
-    )
+    if active_tracking_count is None:
+        active_tracking_count = int(
+            await session.scalar(
+                select(func.count(VehicleDeviceAssignment.id))
+                .join(Vehicle, Vehicle.id == VehicleDeviceAssignment.vehicle_id)
+                .where(
+                    Vehicle.owner_id == owner.id,
+                    VehicleDeviceAssignment.provider_id == provider.id,
+                    VehicleDeviceAssignment.status.in_(VISIBLE_TRACKING_STATUSES),
+                )
+            )
+            or 0
+        )
     managed_vehicle_count = (
         total_vehicles
         if link.vehicle_scope_mode == OwnerProviderVehicleScopeMode.ALL
@@ -168,6 +178,7 @@ async def build_workspace(
     session: AsyncSession,
     *,
     owner: VehicleOwner,
+    include_vehicles: bool = False,
 ) -> OwnerProviderConnectionWorkspace:
     providers = list(
         await session.scalars(
@@ -185,40 +196,103 @@ async def build_workspace(
     )
     link_by_provider = {link.provider_id: link for link in links}
 
-    vehicles = list(
-        await session.scalars(
-            select(Vehicle)
-            .where(Vehicle.owner_id == owner.id)
-            .order_by(Vehicle.created_at.desc())
+    # Scope vehicle selection is needed only if the owner explicitly opens the
+    # vehicle-access dialog. Avoid materializing the entire fleet and its GPS
+    # assignments on every normal Provider connections navigation.
+    vehicles: list[Vehicle] = []
+    latest_assignment: dict[uuid.UUID, VehicleDeviceAssignment] = {}
+    provider_names = {provider.id: provider.name for provider in providers}
+    if include_vehicles:
+        vehicles = list(
+            await session.scalars(
+                select(Vehicle)
+                .where(Vehicle.owner_id == owner.id)
+                .order_by(Vehicle.created_at.desc())
+            )
         )
+        assignments = list(
+            await session.scalars(
+                select(VehicleDeviceAssignment)
+                .join(Vehicle, Vehicle.id == VehicleDeviceAssignment.vehicle_id)
+                .where(
+                    Vehicle.owner_id == owner.id,
+                    VehicleDeviceAssignment.status.in_(VISIBLE_TRACKING_STATUSES),
+                )
+                .order_by(
+                    VehicleDeviceAssignment.vehicle_id,
+                    VehicleDeviceAssignment.valid_from.desc(),
+                )
+            )
+        )
+        latest_assignment: dict[uuid.UUID, VehicleDeviceAssignment] = {}
+        for assignment in assignments:
+            latest_assignment.setdefault(assignment.vehicle_id, assignment)
+
+        provider_names = {provider.id: provider.name for provider in providers}
+        for assignment in assignments:
+            if assignment.provider_id and assignment.provider_id not in provider_names:
+                provider = await session.get(VTSProvider, assignment.provider_id)
+                if provider:
+                    provider_names[provider.id] = provider.name
+
+    # Aggregate link summaries in fixed, provider-scoped queries instead of
+    # running 4+ SQL round trips for each connected provider.
+    provider_by_id = {provider.id: provider for provider in providers}
+    missing_provider_ids = {link.provider_id for link in links} - provider_by_id.keys()
+    if missing_provider_ids:
+        extra_providers = await session.scalars(
+            select(VTSProvider).where(VTSProvider.id.in_(missing_provider_ids))
+        )
+        provider_by_id.update({provider.id: provider for provider in extra_providers})
+
+    total_vehicles = int(
+        await session.scalar(select(func.count(Vehicle.id)).where(Vehicle.owner_id == owner.id))
+        or 0
     )
-    assignments = list(
-        await session.scalars(
-            select(VehicleDeviceAssignment)
+    created_counts = dict(
+        (await session.execute(
+            select(Vehicle.created_by_provider_id, func.count(Vehicle.id))
+            .where(Vehicle.owner_id == owner.id, Vehicle.created_by_provider_id.is_not(None))
+            .group_by(Vehicle.created_by_provider_id)
+        )).all()
+    )
+    tracking_counts = dict(
+        (await session.execute(
+            select(VehicleDeviceAssignment.provider_id, func.count(VehicleDeviceAssignment.id))
             .join(Vehicle, Vehicle.id == VehicleDeviceAssignment.vehicle_id)
             .where(
                 Vehicle.owner_id == owner.id,
+                VehicleDeviceAssignment.provider_id.is_not(None),
                 VehicleDeviceAssignment.status.in_(VISIBLE_TRACKING_STATUSES),
             )
-            .order_by(
-                VehicleDeviceAssignment.vehicle_id,
-                VehicleDeviceAssignment.valid_from.desc(),
-            )
-        )
+            .group_by(VehicleDeviceAssignment.provider_id)
+        )).all()
     )
-    latest_assignment: dict[uuid.UUID, VehicleDeviceAssignment] = {}
-    for assignment in assignments:
-        latest_assignment.setdefault(assignment.vehicle_id, assignment)
-
-    provider_names = {provider.id: provider.name for provider in providers}
-    for assignment in assignments:
-        if assignment.provider_id and assignment.provider_id not in provider_names:
-            provider = await session.get(VTSProvider, assignment.provider_id)
-            if provider:
-                provider_names[provider.id] = provider.name
+    selected_by_link: dict[uuid.UUID, list[uuid.UUID]] = {link.id: [] for link in links}
+    if links:
+        access_rows = (await session.execute(
+            select(VTSProviderOwnerVehicleAccess.link_id, VTSProviderOwnerVehicleAccess.vehicle_id)
+            .where(
+                VTSProviderOwnerVehicleAccess.link_id.in_(selected_by_link),
+                VTSProviderOwnerVehicleAccess.is_active.is_(True),
+            )
+            .order_by(VTSProviderOwnerVehicleAccess.granted_at)
+        )).all()
+        for link_id, vehicle_id in access_rows:
+            selected_by_link[link_id].append(vehicle_id)
 
     connection_items = [
-        await build_connection_read(session, owner=owner, link=link) for link in links
+        await build_connection_read(
+            session,
+            owner=owner,
+            link=link,
+            provider=provider_by_id[link.provider_id],
+            selected_ids=selected_by_link[link.id],
+            total_vehicles=total_vehicles,
+            created_vehicle_count=int(created_counts.get(link.provider_id, 0)),
+            active_tracking_count=int(tracking_counts.get(link.provider_id, 0)),
+        )
+        for link in links
     ]
     stats = OwnerProviderConnectionStats(
         total_links=len(links),
@@ -289,6 +363,16 @@ async def build_workspace(
             for vehicle in vehicles
         ],
     )
+
+
+@router.get("/vehicles", response_model=list[OwnerConnectionVehicleRead])
+async def scope_vehicle_options(
+    actor: Annotated[User, Depends(require_roles(UserRole.VEHICLE_OWNER))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[OwnerConnectionVehicleRead]:
+    owner = await require_owner(session, actor)
+    workspace = await build_workspace(session, owner=owner, include_vehicles=True)
+    return workspace.vehicles
 
 
 @router.get("", response_model=OwnerProviderConnectionWorkspace)
