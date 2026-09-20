@@ -30,3 +30,14 @@ async def test_owner_provider_workspace_defers_vehicle_data_and_keeps_scoping(
         headers=provider_headers,
     )
     assert denied.status_code == 403, denied.text
+
+    roster = await client.get(
+        "/api/v1/owners/me/driver-vehicle-options", headers=owner_headers
+    )
+    assert roster.status_code == 200, roster.text
+    assert roster.json() == []
+
+    provider_roster = await client.get(
+        "/api/v1/owners/me/driver-vehicle-options", headers=provider_headers
+    )
+    assert provider_roster.status_code == 403, provider_roster.text
