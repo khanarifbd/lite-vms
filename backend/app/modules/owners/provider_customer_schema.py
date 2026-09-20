@@ -71,6 +71,7 @@ class ProviderOwnerCustomerRead(BaseModel):
     owner: OwnerApplicationRead
     account: UserAdminRead | None
     can_manage: bool
+    can_reset_password: bool = False
 
 
 class ProviderOwnerCustomerPage(BaseModel):
