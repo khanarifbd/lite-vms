@@ -229,11 +229,15 @@ async def build_workspace(
             latest_assignment.setdefault(assignment.vehicle_id, assignment)
 
         provider_names = {provider.id: provider.name for provider in providers}
-        for assignment in assignments:
-            if assignment.provider_id and assignment.provider_id not in provider_names:
-                provider = await session.get(VTSProvider, assignment.provider_id)
-                if provider:
-                    provider_names[provider.id] = provider.name
+        missing_ids = {
+            assignment.provider_id for assignment in assignments
+            if assignment.provider_id and assignment.provider_id not in provider_names
+        }
+        if missing_ids:
+            extra_providers = await session.scalars(
+                select(VTSProvider).where(VTSProvider.id.in_(missing_ids))
+            )
+            provider_names.update({provider.id: provider.name for provider in extra_providers})
 
     # Aggregate link summaries in fixed, provider-scoped queries instead of
     # running 4+ SQL round trips for each connected provider.
