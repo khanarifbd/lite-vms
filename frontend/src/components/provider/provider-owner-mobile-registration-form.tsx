@@ -131,7 +131,6 @@ export function ProviderOwnerMobileRegistrationForm() {
         district: optional(data, "district"),
         website_url: optional(data, "website_url"),
         documents: [],
-        website_url: optional(data, "website_url"),
         declaration_accepted: true,
       }
       const response = await fetch("/api/provider/owners/mobile-register", {
