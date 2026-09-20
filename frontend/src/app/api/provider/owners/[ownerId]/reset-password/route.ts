@@ -12,14 +12,14 @@ export async function POST(
     | null
   if (
     typeof body?.new_password !== "string" ||
-    body.new_password.length < 12 ||
+    body.new_password.length < 6 ||
     body.new_password.length > 128 ||
     typeof body.reason !== "string" ||
     body.reason.trim().length < 10 ||
     body.reason.length > 500
   ) {
     return NextResponse.json(
-      { message: "A new owner password (12–128 characters) and support reason (10+ characters) are required." },
+      { message: "A new owner password (6–128 characters) and support reason (10+ characters) are required." },
       { status: 400, headers: { "Cache-Control": "no-store" } }
     )
   }
