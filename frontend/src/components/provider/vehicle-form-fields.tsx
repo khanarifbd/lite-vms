@@ -1,4 +1,6 @@
-import type { ReactNode } from "react"
+"use client"
+
+import { type ReactNode, useEffect, useState } from "react"
 
 import { DdMmYyyyInput } from "@/components/ui/date-input"
 import { Input } from "@/components/ui/input"
@@ -27,10 +29,15 @@ export function FormField({ label, hint, children }: { label: string; hint?: str
 export function FormSelect({ name, options, value, placeholder, required = false, disabled = false }: {
   name: string; options: Option[]; value?: string | null; placeholder: string; required?: boolean; disabled?: boolean
 }) {
-  const hasCurrent = Boolean(value && !options.some((item) => item.value === value))
-  return <select name={name} defaultValue={value || ""} required={required} disabled={disabled} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50">
+  // Keep the selected value in React state: when option lists arrive asynchronously,
+  // the browser may otherwise reset an uncontrolled select to its placeholder.
+  // The edit page must retain the stored value, not silently clear it on save.
+  const [selected, setSelected] = useState(value ?? "")
+  useEffect(() => { setSelected(value ?? "") }, [value])
+  const hasCurrent = Boolean(selected && !options.some((item) => item.value === selected))
+  return <select name={name} value={selected} onChange={(event) => setSelected(event.currentTarget.value)} required={required} disabled={disabled} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50">
     <option value="">{placeholder}</option>
-    {hasCurrent ? <option value={value || ""}>{value}</option> : null}
+    {hasCurrent ? <option value={selected}>{selected}</option> : null}
     {options.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
   </select>
 }
