@@ -40,7 +40,7 @@ async def test_provider_owner_password_support_checks_scope_and_revokes_sessions
     reset = await client.post(path, headers=provider_headers, json=payload)
     assert reset.status_code == 200, reset.text
     assert "new_password" not in reset.json()
-    assert await client.get("/api/v1/auth/me", headers=owner_headers).status_code == 401
+    assert (await client.get("/api/v1/auth/me", headers=owner_headers)).status_code == 401
 
     old_login = await client.post(
         "/api/v1/auth/login",
