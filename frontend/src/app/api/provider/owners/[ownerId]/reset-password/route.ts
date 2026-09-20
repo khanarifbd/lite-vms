@@ -19,7 +19,7 @@ export async function POST(
     body.reason.length > 500
   ) {
     return NextResponse.json(
-      { message: "A temporary password (12+ characters) and support reason (10+ characters) are required." },
+      { message: "A new owner password (12–128 characters) and support reason (10+ characters) are required." },
       { status: 400, headers: { "Cache-Control": "no-store" } }
     )
   }

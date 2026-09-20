@@ -243,7 +243,7 @@ async def reset_linked_owner_password(
 
     # An owner can link with multiple providers. A link is NOT authorization
     # to take over the owner's global login. Only the original registering
-    # provider may issue a temporary password to its own owner account.
+    # provider may set a password for the owner account it registered.
     if owner.created_by_provider_id != provider.id:
         raise HTTPException(
             status_code=403,
@@ -265,7 +265,7 @@ async def reset_linked_owner_password(
         session,
         user=user,
         new_password=payload.new_password,
-        must_change_password=True,
+        must_change_password=False,
     )
     await write_audit_log(
         session,
@@ -280,11 +280,11 @@ async def reset_linked_owner_password(
         reason=payload.reason,
         new_values={
             "user_public_id": str(user.public_id),
-            "must_change_password": True,
+            "must_change_password": False,
             "sessions_revoked": True,
         },
     )
     await session.commit()
     return MessageResponse(
-        message="Temporary password set. Existing sessions were revoked; the owner must change their password at next login."
+        message="Owner password updated. Existing sessions were revoked; the owner can continue using this password without a required change."
     )
