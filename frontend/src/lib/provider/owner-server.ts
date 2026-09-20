@@ -2,6 +2,7 @@ import "server-only"
 
 import type {
   ProviderOwnerOption,
+  ProviderOwnerCustomer,
   ProviderOwnerPage,
   ProviderOwnerPortfolioPage,
   ProviderOwnerSummary,
@@ -58,4 +59,11 @@ export async function getActiveProviderOwners() {
       },
     })),
   }
+}
+
+
+export async function getProviderOwnerDetails(ownerId: string) {
+  return authenticatedBackendFetch<ProviderOwnerCustomer>(
+    `/providers/me/owners/${encodeURIComponent(ownerId)}`
+  )
 }

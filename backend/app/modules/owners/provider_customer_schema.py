@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -71,6 +71,7 @@ class ProviderOwnerCustomerRead(BaseModel):
     owner: OwnerApplicationRead
     account: UserAdminRead | None
     can_manage: bool
+    can_reset_password: bool = False
 
 
 class ProviderOwnerCustomerPage(BaseModel):
@@ -80,10 +81,27 @@ class ProviderOwnerCustomerPage(BaseModel):
     limit: int
 
 
+class ProviderOwnerPasswordReset(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    new_password: str = Field(min_length=12, max_length=128)
+    reason: str = Field(min_length=10, max_length=500)
+
+
 class ProviderManagedOwnerUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     owner_name: str | None = Field(default=None, min_length=2, max_length=180)
+    date_of_birth: date | None = None
+    father_name: str | None = Field(default=None, max_length=180)
+    mother_name: str | None = Field(default=None, max_length=180)
+    gender: str | None = Field(default=None, max_length=30)
+    company_type: str | None = Field(default=None, max_length=80)
+    incorporation_date: date | None = None
+    authorized_person_name: str | None = Field(default=None, max_length=180)
+    authorized_person_designation: str | None = Field(default=None, max_length=140)
+    authorized_person_mobile: str | None = Field(default=None, max_length=30)
+    authorized_person_email: str | None = Field(default=None, max_length=180)
     trade_license_number: str | None = Field(default=None, max_length=120)
     tin_number: str | None = Field(default=None, max_length=80)
     bin_number: str | None = Field(default=None, max_length=80)

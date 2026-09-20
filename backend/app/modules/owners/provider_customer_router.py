@@ -11,10 +11,13 @@ from app.modules.audit.service import write_audit_log
 from app.modules.auth.dependencies import require_roles
 from app.modules.auth.identifier_service import IdentifierManagementError
 from app.modules.auth.model import User
+from app.modules.auth.service import change_password, user_has_role
+from app.modules.auth.schema import MessageResponse
 from app.modules.owners.enums import OwnerProviderLinkStatus
 from app.modules.owners.model import VehicleOwner
 from app.modules.owners.provider_customer_schema import (
     ProviderManagedOwnerUpdate,
+    ProviderOwnerPasswordReset,
     ProviderManagedOwnerUpdateResult,
     ProviderOwnerCustomerPage,
     ProviderOwnerCustomerRead,
@@ -27,6 +30,7 @@ from app.modules.owners.provider_customer_service import (
     build_provider_customer_read,
     build_provider_customer_summary,
     get_provider_customer_link,
+    require_active_customer_link,
     list_provider_customers,
     list_provider_owner_options,
     list_provider_owner_portfolio,
@@ -218,4 +222,69 @@ async def update_linked_owner(
         reverification_required=reverification_required,
         verification_status=customer.owner.verification_status,
         updated_at=customer.owner.updated_at,
+    )
+
+
+@router.post("/{owner_id}/reset-password", response_model=MessageResponse)
+async def reset_linked_owner_password(
+    owner_id: uuid.UUID,
+    payload: ProviderOwnerPasswordReset,
+    request: Request,
+    actor: Annotated[User, Depends(require_roles(UserRole.VTS_ADMIN))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> MessageResponse:
+    provider = await current_provider_or_error(session, actor)
+    try:
+        _, owner = await require_active_customer_link(
+            session, provider_id=provider.id, owner_id=owner_id
+        )
+    except ProviderCustomerManagementError:
+        raise HTTPException(status_code=404, detail="No active linked owner account") from None
+
+    # An owner can link with multiple providers. A link is NOT authorization
+    # to take over the owner's global login. Only the original registering
+    # provider may issue a temporary password to its own owner account.
+    if owner.created_by_provider_id != provider.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the provider that registered this owner can reset the global account",
+        )
+    if owner.primary_admin_user_id is None:
+        raise HTTPException(status_code=409, detail="This owner has no linked login account")
+    user = await session.get(User, owner.primary_admin_user_id)
+    if user is None or user.deleted_at is not None:
+        raise HTTPException(status_code=409, detail="The owner login account is unavailable")
+    if user.id in (actor.id, provider.primary_admin_user_id):
+        raise HTTPException(status_code=403, detail="This account cannot be reset through owner support")
+    if not await user_has_role(session, user.id, UserRole.VEHICLE_OWNER.value):
+        raise HTTPException(status_code=403, detail="The linked account is not a vehicle owner account")
+    if await user_has_role(session, user.id, UserRole.SUPER_ADMIN.value):
+        raise HTTPException(status_code=403, detail="Privileged accounts require administrator recovery")
+
+    await change_password(
+        session,
+        user=user,
+        new_password=payload.new_password,
+        must_change_password=True,
+    )
+    await write_audit_log(
+        session,
+        tenant_id=provider.tenant_id,
+        actor_user_id=actor.id,
+        actor_organization_id=provider.root_organization_id,
+        action="vts_provider.owner_password_reset",
+        resource_type="vehicle_owner",
+        resource_public_id=owner.id,
+        ip_address=request_ip(request),
+        user_agent=request_agent(request),
+        reason=payload.reason,
+        new_values={
+            "user_public_id": str(user.public_id),
+            "must_change_password": True,
+            "sessions_revoked": True,
+        },
+    )
+    await session.commit()
+    return MessageResponse(
+        message="Temporary password set. Existing sessions were revoked; the owner must change their password at next login."
     )

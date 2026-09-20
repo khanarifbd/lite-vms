@@ -120,6 +120,11 @@ async def build_provider_customer_read(
         owner=await build_owner_read(session, owner),
         account=account,
         can_manage=link.status == OwnerProviderLinkStatus.ACTIVE,
+        can_reset_password=(
+            link.status == OwnerProviderLinkStatus.ACTIVE
+            and owner.created_by_provider_id == link.provider_id
+            and account is not None
+        ),
     )
 
 
@@ -443,6 +448,10 @@ async def update_provider_customer(
     }
     sensitive_registry_fields = {
         "owner_name",
+        "date_of_birth",
+        "company_type",
+        "incorporation_date",
+        "authorized_person_name",
         "trade_license_number",
         "tin_number",
         "bin_number",

@@ -1,16 +1,17 @@
 "use client"
 
-import { ArrowLeft, CalendarDays, CheckCircle2, Loader2, Search, ShieldCheck } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Loader2, Search, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { type FormEvent, useRef, useState } from "react"
+import { type FormEvent, useState } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { ProviderOwnerProfileFields } from "@/components/provider/provider-owner-profile-fields"
+import { readOptionalDdMmYyyyIso } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 
 type OwnerType = "individual" | "company"
 
@@ -22,10 +23,6 @@ type LookupResult = {
   account_exists: boolean
   current_provider_link_status: string | null
   next_action: string
-}
-
-type DateInputWithPicker = HTMLInputElement & {
-  showPicker?: () => void
 }
 
 async function responseMessage(response: Response, fallback: string) {
@@ -46,110 +43,6 @@ function text(data: FormData, key: string) {
 
 function optional(data: FormData, key: string) {
   return text(data, key) || null
-}
-
-function formatDdMmYyyyInput(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 8)
-  if (digits.length <= 2) return digits
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
-}
-
-function ddMmYyyyToIso(value: string) {
-  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value)
-  if (!match) return null
-
-  const [, dayText, monthText, yearText] = match
-  const day = Number(dayText)
-  const month = Number(monthText)
-  const year = Number(yearText)
-  if (year < 1000) return null
-
-  const parsed = new Date(Date.UTC(year, month - 1, day))
-  if (
-    parsed.getUTCFullYear() !== year ||
-    parsed.getUTCMonth() !== month - 1 ||
-    parsed.getUTCDate() !== day
-  ) {
-    return null
-  }
-
-  return `${yearText}-${monthText}-${dayText}`
-}
-
-function isoToDdMmYyyy(value: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
-  if (!match) return ""
-  const [, year, month, day] = match
-  return `${day}/${month}/${year}`
-}
-
-function optionalIsoDate(data: FormData, key: string, label: string) {
-  const value = text(data, key)
-  if (!value) return null
-
-  const isoDate = ddMmYyyyToIso(value)
-  if (!isoDate) {
-    throw new Error(`${label} must be a valid DD/MM/YYYY date.`)
-  }
-  return isoDate
-}
-
-function DdMmYyyyInput({ id, name }: { id: string; name: string }) {
-  const [value, setValue] = useState("")
-  const pickerRef = useRef<HTMLInputElement>(null)
-
-  function openPicker() {
-    const picker = pickerRef.current as DateInputWithPicker | null
-    if (!picker) return
-
-    picker.value = ddMmYyyyToIso(value) || ""
-    if (typeof picker.showPicker === "function") {
-      picker.showPicker()
-    } else {
-      picker.click()
-    }
-  }
-
-  return (
-    <div className="relative">
-      <Input
-        id={id}
-        name={name}
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        maxLength={10}
-        pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}"
-        placeholder="DD/MM/YYYY"
-        title="Use DD/MM/YYYY, for example 13/08/2026"
-        value={value}
-        onChange={(event) => setValue(formatDdMmYyyyInput(event.currentTarget.value))}
-        className="pr-11"
-      />
-      <button
-        type="button"
-        onClick={openPicker}
-        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        aria-label="Open calendar"
-        title="Choose date"
-      >
-        <CalendarDays className="size-4" />
-      </button>
-      <input
-        ref={pickerRef}
-        type="date"
-        tabIndex={-1}
-        aria-hidden="true"
-        className="pointer-events-none absolute bottom-0 right-0 h-px w-px opacity-0"
-        onChange={(event) => {
-          if (event.currentTarget.value) {
-            setValue(isoToDdMmYyyy(event.currentTarget.value))
-          }
-        }}
-      />
-    </div>
-  )
 }
 
 export function ProviderOwnerMobileRegistrationForm() {
@@ -216,7 +109,7 @@ export function ProviderOwnerMobileRegistrationForm() {
         temporary_password: optional(data, "temporary_password"),
         date_of_birth:
           ownerType === "individual"
-            ? optionalIsoDate(data, "date_of_birth", "Date of birth")
+            ? readOptionalDdMmYyyyIso(data, "date_of_birth", "Date of birth")
             : null,
         father_name: optional(data, "father_name"),
         mother_name: optional(data, "mother_name"),
@@ -225,7 +118,7 @@ export function ProviderOwnerMobileRegistrationForm() {
         company_type: optional(data, "company_type"),
         incorporation_date:
           ownerType === "company"
-            ? optionalIsoDate(data, "incorporation_date", "Incorporation date")
+            ? readOptionalDdMmYyyyIso(data, "incorporation_date", "Incorporation date")
             : null,
         authorized_person_name: optional(data, "authorized_person_name"),
         authorized_person_designation: optional(data, "authorized_person_designation"),
@@ -319,47 +212,7 @@ export function ProviderOwnerMobileRegistrationForm() {
       </Card>
 
       <form onSubmit={submit} className="space-y-6">
-        <Card>
-          <CardHeader><CardTitle>2. Owner profile</CardTitle></CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2"><Label htmlFor="owner_name">Owner / company name *</Label><Input id="owner_name" name="owner_name" required /></div>
-            <div className="space-y-2"><Label htmlFor="district">District</Label><Input id="district" name="district" /></div>
-            <div className="space-y-2 md:col-span-2"><Label htmlFor="registered_address">Registered address</Label><Textarea id="registered_address" name="registered_address" /></div>
-            {ownerType === "individual" ? (
-              <>
-                <div className="space-y-2"><Label htmlFor="date_of_birth">Date of birth</Label><DdMmYyyyInput id="date_of_birth" name="date_of_birth" /></div>
-                <div className="space-y-2"><Label htmlFor="gender">Gender</Label><Input id="gender" name="gender" /></div>
-                <div className="space-y-2"><Label htmlFor="father_name">Father&apos;s name</Label><Input id="father_name" name="father_name" /></div>
-                <div className="space-y-2"><Label htmlFor="mother_name">Mother&apos;s name</Label><Input id="mother_name" name="mother_name" /></div>
-              </>
-            ) : (
-              <>
-                <div className="space-y-2"><Label htmlFor="company_registration_number">Company registration number</Label><Input id="company_registration_number" name="company_registration_number" /></div>
-                <div className="space-y-2"><Label htmlFor="trade_license_number">Trade licence number</Label><Input id="trade_license_number" name="trade_license_number" /></div>
-                <div className="space-y-2"><Label htmlFor="company_type">Company type</Label><Input id="company_type" name="company_type" /></div>
-                <div className="space-y-2"><Label htmlFor="incorporation_date">Incorporation date</Label><DdMmYyyyInput id="incorporation_date" name="incorporation_date" /></div>
-                <div className="space-y-2"><Label htmlFor="authorized_person_name">Authorized person</Label><Input id="authorized_person_name" name="authorized_person_name" /></div>
-                <div className="space-y-2"><Label htmlFor="authorized_person_mobile">Authorized person mobile</Label><Input id="authorized_person_mobile" name="authorized_person_mobile" type="tel" /></div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>3. Login account</CardTitle>
-            <p className="text-sm leading-6 text-muted-foreground">
-              A username is required for the owner to sign in. Mobile and email are saved as additional contact and login identifiers.
-            </p>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2"><Label htmlFor="contact_name">Account holder name *</Label><Input id="contact_name" name="contact_name" required /></div>
-            <div className="space-y-2"><Label>Registered mobile</Label><Input value={mobile} disabled /></div>
-            <div className="space-y-2"><Label htmlFor="email">Login email (optional)</Label><Input id="email" name="email" type="email" /></div>
-            <div className="space-y-2"><Label htmlFor="login_username">Login username *</Label><Input id="login_username" name="login_username" minLength={3} required /></div>
-            <div className="space-y-2"><Label htmlFor="temporary_password">Temporary password (optional)</Label><Input id="temporary_password" name="temporary_password" type="password" minLength={6} /></div>
-          </CardContent>
-        </Card>
+        <ProviderOwnerProfileFields ownerType={ownerType} mobile={mobile} />
 
         <label className="flex items-start gap-3 rounded-2xl border bg-slate-50 p-4">
           <input type="checkbox" name="declaration" className="mt-1 size-4" />
